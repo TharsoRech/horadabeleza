@@ -61,7 +61,9 @@ export default function WelcomeScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.guestBtn}>
-              <Text style={styles.guestText}>Ou continue como convidado</Text>
+              <Text style={styles.guestText}
+                    onPress={() => router.replace('/(tabs)' as any)}
+              >Ou continue como convidado</Text>
             </TouchableOpacity>
           </View>
 

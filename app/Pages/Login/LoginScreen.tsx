@@ -3,13 +3,27 @@ import { Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { localStyles, styles } from '../styles';
-import { useRouter } from 'expo-router'; // ADD THIS
+import { useRouter } from 'expo-router';
+import { useAuth } from '../../Managers/AuthManager'; // Ajuste o caminho
+import { UserProfile } from '../../Models/UserProfile'; // Ajuste o caminho
 
 export default function LoginScreen() {
     const insets = useSafeAreaInsets();
-    const router = useRouter(); // INITIALIZE ROUTER
+    const router = useRouter();
+    const { login } = useAuth(); // Pega a função login do Contexto
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+
+    const handleLogin = async () => {
+        // Usamos o seu mock estático do Swift/TS
+        const userMock = UserProfile.mock();
+
+        // Se você quiser usar o e-mail digitado no mock:
+        userMock.email = email;
+
+        await login(userMock);
+    };
 
     return (
         <View style={styles.container}>
@@ -43,18 +57,23 @@ export default function LoginScreen() {
                             secureTextEntry
                         />
 
-                        <TouchableOpacity style={styles.signUpBtn}>
+                        {/* onPress movido para o TouchableOpacity */}
+                        <TouchableOpacity
+                            style={styles.signUpBtn}
+                            onPress={handleLogin}
+                        >
                             <Text style={styles.signUpText}>Entrar</Text>
                         </TouchableOpacity>
 
-                        {/* CHANGE navigation.navigate TO router.push */}
-                        <TouchableOpacity onPress={() => router.push('/Pages/Login/RegisterScreen' as any)} style={styles.guestBtn}>
+                        <TouchableOpacity onPress={() => router.push('/Pages/Register/RegisterScreen' as any)} style={styles.guestBtn}>
                             <Text style={styles.guestText}>Não tem uma conta? Cadastre-se</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.guestBtn}>
-                            <Text style={styles.guestText}
-                                  onPress={() => router.push('/Pages/Welcome/WelcomeScreen' as any)}>
-                                Ou volte para o inicio</Text>
+
+                        <TouchableOpacity
+                            style={styles.guestBtn}
+                            onPress={() => router.replace('/Pages/Welcome/WelcomeScreen' as any)}
+                        >
+                            <Text style={styles.guestText}>Ou volte para o início</Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
