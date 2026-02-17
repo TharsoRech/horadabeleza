@@ -1,16 +1,13 @@
 import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import WelcomeScreen from './Pages/Welcome/WelcomeScreen';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
-
+import {Stack} from "expo-router";
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
-  return (
-       <WelcomeScreen></WelcomeScreen>
-  );
+    return (
+        <Stack screenOptions={{ headerShown: false }}>
+            {/* Home screen */}
+            <Stack.Screen name="Pages/Welcome/WelcomeScreen" />
+            {/* Map the names to the full folder paths */}
+            <Stack.Screen name="Pages/Login/LoginScreen" />
+            <Stack.Screen name="Pages/Register/RegisterScreen" />
+        </Stack>
+    );
 }

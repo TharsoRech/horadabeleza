@@ -89,4 +89,19 @@ export const styles = StyleSheet.create({
         fontSize: 14,
         textDecorationLine: 'underline',
     },
+}); 
+
+export const localStyles = StyleSheet.create({
+    input: {
+        width: '100%',
+        backgroundColor: 'rgba(255, 255, 255, 0.2)', // Semi-transparent white
+        paddingVertical: 15,
+        paddingHorizontal: 20,
+        borderRadius: 15,
+        fontSize: 16,
+        color: '#FFF',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+        marginBottom: 5,
+    }
 });
