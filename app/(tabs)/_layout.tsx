@@ -11,8 +11,8 @@ export default function TabLayout() {
                 tabBarStyle: {
                     borderTopWidth: 0,
                     elevation: 10,
-                    height: 60,
-                    paddingBottom: 10,
+                    marginTop:0,
+                    padding:32,
                 },
             }}>
             <Tabs.Screen
@@ -24,6 +24,7 @@ export default function TabLayout() {
                     ),
                 }}
             />
+            
             <Tabs.Screen
                 name="Appointments"
                 options={{

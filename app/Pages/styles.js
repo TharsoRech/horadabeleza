@@ -32,13 +32,13 @@ export const styles = StyleSheet.create({
     promoSub: { color: '#FFF', fontSize: 14, marginBottom: 10 },
     promoBtn: { backgroundColor: '#FFF', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10, alignSelf: 'flex-start' },
     promoBtnText: { color: '#FF4B91', fontWeight: 'bold' },
-    sectionContainer: { marginTop: 10 },
+    sectionContainer: { marginTop: 16 ,paddingTop:10},
     sectionTitle: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 20, marginBottom: 15 },
     categoriesList: { paddingHorizontal: 15 },
     categoryCard: { alignItems: 'center', marginRight: 20 },
     categoryIconCircle: { width: 60, height: 60, backgroundColor: '#FFF', borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 3 },
     categoryName: { marginTop: 8, fontSize: 13, color: '#444' },
-    salonCard: { marginHorizontal: 20, backgroundColor: '#FFF', borderRadius: 20, overflow: 'hidden', elevation: 3, marginBottom: 20 },
+    salonCard: { marginHorizontal: 16, backgroundColor: '#FFF', borderRadius: 20, overflow: 'hidden', elevation: 3, marginBottom: 16, width: '200' },
     salonImagePlaceholder: { height: 150, backgroundColor: '#EEE' },
     salonInfo: { padding: 15 },
     salonName: { fontSize: 16, fontWeight: 'bold' },
@@ -184,6 +184,45 @@ export const styles = StyleSheet.create({
     roleTextActive: {
         color: 'white'
     },
+    profileHeader: { alignItems: 'center', padding: 40, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    avatarCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#FFF0F5', justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
+    userName: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+    menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#f9f9f9' },
+    menuText: { flex: 1, marginLeft: 15, fontSize: 16, color: '#333' },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+        paddingRight: 16, 
+    },
+    seeAllText: {
+        color: '#FF4B91',
+        fontWeight: 'bold',
+    },
+    salonsScrollContainer: {
+        gap: 0, 
+        paddingHorizontal: 0, 
+    },
+    badge: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        backgroundColor: '#FF4B91',
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 2,
+        borderColor: '#fff'
+    },
+    badgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold'
+    }
 }); 
 
 export const localStyles = StyleSheet.create({

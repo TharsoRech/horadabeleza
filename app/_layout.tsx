@@ -25,12 +25,6 @@ function RootLayoutNav() {
                 router.replace('/Pages/Welcome/WelcomeScreen');
             }
         }
-
-        console.log('--- DEBUG NAVEGAÇÃO ---');
-        console.log('Autenticado:', isAuthenticated);
-        console.log('Loading Manager:', loading);
-        console.log('Segmentos Atuais:', segments);
-        console.log('Roteador Pronto:', !!navigationState?.key);
     }, [isAuthenticated, loading, segments, navigationState?.key]);
 
     if (loading || !navigationState?.key) return null;
@@ -46,7 +40,6 @@ function RootLayoutNav() {
     );
 }
 
-// ESTA É A PARTE QUE FALTAVA: O export default
 export default function RootLayout() {
     return (
         <AuthProvider>
