@@ -1,25 +1,13 @@
-// Define a estrutura do objeto
 export interface Salon {
-    id: string; // Adicionado ID para chaves de lista
+    id: string;
     name: string;
     address: string;
     rating: string;
     reviews: number;
     image?: string;
+    serviceIds: string[]; // IDs vinculados ao MOCK_SERVICES
 }
 
-// Mock de um único item (Útil para testes unitários ou detalhes)
-export const MOCK_SALON: Salon = {
-    id: '1',
-    name: "Studio Glamour",
-    address: "Av. Paulista, 1000 - SP",
-    rating: "4.9",
-    reviews: 120,
-    // Exemplo de Base64 pequena (pixel transparente)
-    image: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-};
-
-// Mock de Lista (O que você usará na HomeScreen)
 export const MOCK_SALONS_LIST: Salon[] = [
     {
         id: '1',
@@ -27,7 +15,7 @@ export const MOCK_SALONS_LIST: Salon[] = [
         address: "Av. Paulista, 1000 - SP",
         rating: "4.9",
         reviews: 120,
-        image: undefined, // Testando sem imagem (placeholder)
+        serviceIds: ['1', '2', '3', '5'],
     },
     {
         id: '2',
@@ -35,7 +23,7 @@ export const MOCK_SALONS_LIST: Salon[] = [
         address: "Rua Augusta, 450 - SP",
         rating: "4.7",
         reviews: 85,
-        image: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        serviceIds: ['2', '4'],
     },
     {
         id: '3',
@@ -43,7 +31,7 @@ export const MOCK_SALONS_LIST: Salon[] = [
         address: "Alameda Santos, 200 - SP",
         rating: "4.8",
         reviews: 210,
-        image: undefined,
+        serviceIds: ['2'],
     },
     {
         id: '4',
@@ -51,6 +39,6 @@ export const MOCK_SALONS_LIST: Salon[] = [
         address: "Bela Cintra, 12 - SP",
         rating: "4.5",
         reviews: 50,
-        image: undefined,
+        serviceIds: ['1'],
     }
 ];

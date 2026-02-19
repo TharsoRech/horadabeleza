@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, Easing, ViewStyle, DimensionValue } from 'react-native';
+import { View, Animated, Easing, ViewStyle, DimensionValue, ScrollView } from 'react-native';
 
 interface SkeletonProps {
     width?: DimensionValue;
@@ -8,7 +8,6 @@ interface SkeletonProps {
     style?: ViewStyle;
 }
 
-// 1. Componente Base Reutilizável
 export const AnimatedSkeleton = ({
                                      width = '100%',
                                      height = 150,
@@ -48,17 +47,48 @@ export const AnimatedSkeleton = ({
     );
 };
 
-// 2. O PRESET QUE ESTAVA FALTANDO (SearchResultSkeleton)
+// Preset para a busca (Cards Verticais)
 export const SearchResultSkeleton = () => (
     <View style={{ paddingHorizontal: 20, marginTop: 10 }}>
         {[1, 2, 3].map((i) => (
-            <View key={i} style={{ marginBottom: 20 }}>
-                <AnimatedSkeleton height={180} />
-                <View style={{ marginTop: 10 }}>
-                    <AnimatedSkeleton height={20} width="70%" borderRadius={4} style={{ marginBottom: 8 }} />
+            <View key={i} style={{ marginBottom: 20, flexDirection: 'row', alignItems: 'center' }}>
+                <AnimatedSkeleton width={80} height={80} borderRadius={12} />
+                <View style={{ marginLeft: 15, flex: 1 }}>
+                    <AnimatedSkeleton height={20} width="60%" borderRadius={4} style={{ marginBottom: 8 }} />
                     <AnimatedSkeleton height={15} width="40%" borderRadius={4} />
                 </View>
             </View>
         ))}
     </View>
+);
+
+// NOVO: Preset para a Home Principal (Seções Horizontais)
+export const HomeSkeleton = () => (
+    <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+        {/* Skeleton de Serviços (Círculos) */}
+        <View style={{ padding: 20 }}>
+            <AnimatedSkeleton height={20} width={100} style={{ marginBottom: 15 }} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {[1, 2, 3, 4, 5].map(i => (
+                    <View key={i} style={{ alignItems: 'center', marginRight: 20 }}>
+                        <AnimatedSkeleton width={60} height={60} borderRadius={30} />
+                        <AnimatedSkeleton width={40} height={10} style={{ marginTop: 8 }} />
+                    </View>
+                ))}
+            </ScrollView>
+        </View>
+
+        {/* Skeleton de Salões (Cards Grandes) */}
+        <View style={{ padding: 20 }}>
+            <AnimatedSkeleton height={20} width={150} style={{ marginBottom: 15 }} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {[1, 2].map(i => (
+                    <View key={i} style={{ marginRight: 15 }}>
+                        <AnimatedSkeleton width={240} height={160} borderRadius={16} />
+                        <AnimatedSkeleton width={180} height={15} style={{ marginTop: 10 }} />
+                    </View>
+                ))}
+            </ScrollView>
+        </View>
+    </ScrollView>
 );

@@ -4,7 +4,7 @@ import {Professional} from "@/app/Models/Professional";
 
 export interface ISalonRepository {
     getPopularSalons(): Promise<Salon[]>;
-    getCategories(): Promise<Category[]>;
+    getServices(): Promise<Category[]>;
     getTopProfessionals(): Promise<Professional[]>
     searchAll(query: string, filter: string, page: number): Promise<(Salon | Professional)[]>;
 }
