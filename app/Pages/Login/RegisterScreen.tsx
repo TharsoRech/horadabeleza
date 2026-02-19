@@ -11,31 +11,31 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { localStyles, styles } from '../styles';
 import { useRouter } from "expo-router";
-import { useAuth } from '../../Managers/AuthManager';
-import { UserProfile, UserRole } from '../../Models/UserProfile';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+
+// New Modular Styles
+import { authStyles } from "@/app/Styles/authStyles";
+
+// Logic & Models
+import { useAuth } from '../../Managers/AuthManager';
+import { UserProfile, UserRole } from '../../Models/UserProfile';
 
 export default function RegisterScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { login } = useAuth();
 
-    // Estados para os campos
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [cpf, setCpf] = useState('');
     const [birthDate, setBirthDate] = useState('');
     const [password, setPassword] = useState('');
-
-    // Estados para Papel (Role) e Imagem
     const [role, setRole] = useState<UserRole>(UserRole.CLIENT);
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [base64Image, setBase64Image] = useState<string | undefined>(undefined);
 
-    // Seleção de Imagem com Base64 Nativo
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
@@ -60,28 +60,20 @@ export default function RegisterScreen() {
 
     const handleRegister = async () => {
         if (!isFormValid) return;
-
         try {
             const newUser = new UserProfile({
-                name: name,
-                email: email,
-                password: password,
-                dob: birthDate,
-                role: role,
-                country: 'Brasil',
-                base64Image: base64Image,
+                name, email, password, dob: birthDate,
+                role, country: 'Brasil', base64Image,
             });
-
             await login(newUser);
-            console.log("Usuário registrado com sucesso como:", role);
         } catch (error) {
-            console.error("Erro ao registrar usuário:", error);
+            console.error("Erro ao registrar:", error);
         }
     };
 
     return (
-        <View style={styles.container}>
-            <LinearGradient colors={['#FF4B91', '#FF76CE']} style={styles.background} />
+        <View style={authStyles.container}>
+            <LinearGradient colors={['#FF4B91', '#FF76CE']} style={authStyles.background} />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -89,20 +81,20 @@ export default function RegisterScreen() {
             >
                 <ScrollView
                     contentContainerStyle={[
-                        styles.content,
+                        authStyles.content,
                         { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }
                     ]}
                     showsVerticalScrollIndicator={false}
                 >
-                    <View style={styles.textSection}>
-                        <Text style={styles.title}>Criar Conta</Text>
-                        <Text style={styles.subtitle}>Como você pretende usar o app?</Text>
+                    <View style={authStyles.textSection}>
+                        <Text style={authStyles.title}>Criar Conta</Text>
+                        <Text style={authStyles.subtitle}>Como você pretende usar o app?</Text>
                     </View>
 
-                    {/* SELETOR DE ROLE (CLIENTE VS PROFISSIONAL) */}
-                    <View style={styles.roleContainer}>
+                    {/* ROLE SELECTOR */}
+                    <View style={authStyles.roleContainer}>
                         <TouchableOpacity
-                            style={[styles.roleCard, role === UserRole.CLIENT && styles.roleCardActive]}
+                            style={[authStyles.roleCard, role === UserRole.CLIENT && authStyles.roleCardActive]}
                             onPress={() => setRole(UserRole.CLIENT)}
                         >
                             <MaterialCommunityIcons
@@ -110,13 +102,13 @@ export default function RegisterScreen() {
                                 size={32}
                                 color={role === UserRole.CLIENT ? 'white' : 'rgba(255,255,255,0.6)'}
                             />
-                            <Text style={[styles.roleText, role === UserRole.CLIENT && styles.roleTextActive]}>
+                            <Text style={[authStyles.roleText, role === UserRole.CLIENT && authStyles.roleTextActive]}>
                                 Buscar Serviço
                             </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.roleCard, role === UserRole.OWNER && styles.roleCardActive]}
+                            style={[authStyles.roleCard, role === UserRole.OWNER && authStyles.roleCardActive]}
                             onPress={() => setRole(UserRole.OWNER)}
                         >
                             <MaterialCommunityIcons
@@ -124,37 +116,37 @@ export default function RegisterScreen() {
                                 size={32}
                                 color={role === UserRole.OWNER ? 'white' : 'rgba(255,255,255,0.6)'}
                             />
-                            <Text style={[styles.roleText, role === UserRole.OWNER && styles.roleTextActive]}>
+                            <Text style={[authStyles.roleText, role === UserRole.OWNER && authStyles.roleTextActive]}>
                                 Oferecer Serviço
                             </Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* SELETOR DE FOTO */}
-                    <TouchableOpacity onPress={pickImage} style={styles.imagePickerContainer}>
+                    {/* IMAGE PICKER */}
+                    <TouchableOpacity onPress={pickImage} style={authStyles.imagePickerContainer}>
                         {imageUri ? (
-                            <Image source={{ uri: imageUri }} style={styles.profileImage} />
+                            <Image source={{ uri: imageUri }} style={authStyles.profileImage} />
                         ) : (
-                            <View style={styles.placeholderCircle}>
+                            <View style={authStyles.placeholderCircle}>
                                 <Ionicons name="camera-outline" size={40} color="white" />
-                                <Text style={styles.placeholderText}>Foto de Perfil</Text>
+                                <Text style={authStyles.placeholderText}>Foto de Perfil</Text>
                             </View>
                         )}
                     </TouchableOpacity>
 
-                    {/* FORMULÁRIO */}
-                    <View style={[styles.buttonContainer, { marginTop: 20 }]}>
+                    {/* FORM */}
+                    <View style={[authStyles.buttonContainer, { marginTop: 20 }]}>
                         <TextInput
                             placeholder="Nome Completo"
                             placeholderTextColor="rgba(255, 255, 255, 0.7)"
-                            style={localStyles.input}
+                            style={authStyles.input} // Uses the shared input style
                             value={name}
                             onChangeText={setName}
                         />
                         <TextInput
                             placeholder="E-mail"
                             placeholderTextColor="rgba(255, 255, 255, 0.7)"
-                            style={localStyles.input}
+                            style={authStyles.input}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             value={email}
@@ -163,22 +155,22 @@ export default function RegisterScreen() {
                         <TextInput
                             placeholder="CPF"
                             placeholderTextColor="rgba(255, 255, 255, 0.7)"
-                            style={localStyles.input}
+                            style={authStyles.input}
                             keyboardType="numeric"
                             value={cpf}
                             onChangeText={setCpf}
                         />
                         <TextInput
-                            placeholder="Data de Nascimento (DD/MM/AAAA)"
+                            placeholder="Data de Nascimento"
                             placeholderTextColor="rgba(255, 255, 255, 0.7)"
-                            style={localStyles.input}
+                            style={authStyles.input}
                             value={birthDate}
                             onChangeText={setBirthDate}
                         />
                         <TextInput
                             placeholder="Senha"
                             placeholderTextColor="rgba(255, 255, 255, 0.7)"
-                            style={localStyles.input}
+                            style={authStyles.input}
                             secureTextEntry
                             value={password}
                             onChangeText={setPassword}
@@ -187,19 +179,19 @@ export default function RegisterScreen() {
                         <TouchableOpacity
                             disabled={!isFormValid}
                             style={[
-                                styles.signUpBtn,
+                                authStyles.signUpBtn,
                                 { marginTop: 10, opacity: isFormValid ? 1 : 0.5 }
                             ]}
                             onPress={handleRegister}
                         >
-                            <Text style={styles.signUpText}>Finalizar Cadastro</Text>
+                            <Text style={authStyles.signUpText}>Finalizar Cadastro</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             onPress={() => router.push('/Pages/Login/LoginScreen' as any)}
-                            style={styles.guestBtn}
+                            style={authStyles.guestBtn}
                         >
-                            <Text style={styles.guestText}>Já possui uma conta? Faça Login</Text>
+                            <Text style={authStyles.guestText}>Já possui uma conta? Faça Login</Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>

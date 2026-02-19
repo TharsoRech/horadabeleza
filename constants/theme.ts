@@ -8,6 +8,37 @@ import { Platform } from 'react-native';
 const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
+export const COLORS = {
+  primary: '#D63484',
+  secondary: '#FF4B91',
+  accent: '#FFF0F5',
+  background: '#F8F9FA',
+  white: '#FFFFFF',
+  textMain: '#333333',
+  textSub: '#666666',
+  muted: '#888888',
+  border: '#f0f0f0',
+  glass: 'rgba(255, 255, 255, 0.2)',
+  glassHeavy: 'rgba(255, 255, 255, 0.3)',
+};
+
+export const SHADOWS = {
+  light: {
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  medium: {
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  }
+};
+
 export const Colors = {
   light: {
     text: '#11181C',

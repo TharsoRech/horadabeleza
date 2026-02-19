@@ -1,69 +1,76 @@
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, Dimensions } from 'react-native';
+import { Text, View, Image, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router'; // Import the router hook
-import { styles } from '../styles';
+import { useRouter } from 'expo-router';
+
+// Clean Style System Imports
+import { authStyles } from "@/app/Styles/authStyles";
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter(); // Initialize the router
+  const router = useRouter();
 
   return (
-      <View style={styles.container}>
+      <View style={authStyles.container}>
+        {/* Using standard theme colors recovered from your original gradient */}
         <LinearGradient
             colors={['#FF4B91', '#FF76CE']}
-            style={styles.background}
+            style={authStyles.background}
         />
 
-        {/* Manual Safe Area Handling using insets */}
+        {/* Dynamic Safe Area Handling */}
         <View style={[
-          styles.content,
+          authStyles.content,
           { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }
         ]}>
 
-          {/* Illustration Area */}
-          <View style={styles.imageContainer}>
-            <View style={styles.illustrationPlaceholder}>
+          {/* Illustration Area - Recovered Dimension logic in style file */}
+          <View style={authStyles.imageContainer}>
+            <View style={authStyles.illustrationPlaceholder}>
               <Image
                   source={require('../../../assets/images/your-beauty.png')}
-                  style={styles.image}
+                  style={authStyles.image}
                   resizeMode="contain"
               />
             </View>
           </View>
 
           {/* Text Section */}
-          <View style={styles.textSection}>
-            <Text style={styles.title}>Bem Vindo a Hora da Beleza</Text>
-            <Text style={styles.subtitle}>Fique bonita do seu jeito.</Text>
+          <View style={authStyles.textSection}>
+            <Text style={authStyles.title}>Bem Vindo a Hora da Beleza</Text>
+            <Text style={authStyles.subtitle}>Fique bonita do seu jeito.</Text>
           </View>
 
           {/* Action Buttons */}
-          <View style={styles.buttonContainer}>
+          <View style={authStyles.buttonContainer}>
 
             {/* Navigate to Register Page */}
             <TouchableOpacity
                 activeOpacity={0.8}
-                style={styles.signUpBtn}
+                style={authStyles.signUpBtn}
                 onPress={() => router.push('/Pages/Login/RegisterScreen' as any)}
             >
-              <Text style={styles.signUpText}>Cadastrar</Text>
+              <Text style={authStyles.signUpText}>Cadastrar</Text>
             </TouchableOpacity>
 
             {/* Navigate to Login Page */}
             <TouchableOpacity
                 activeOpacity={0.7}
-                style={styles.logInBtn}
+                style={authStyles.logInBtn}
                 onPress={() => router.push('/Pages/Login/LoginScreen' as any)}
             >
-              <Text style={styles.logInText}>Entrar</Text>
+              <Text style={authStyles.logInText}>Entrar</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.guestBtn}>
-              <Text style={styles.guestText}
-                    onPress={() => router.replace('/(tabs)' as any)}
-              >Ou continue como convidado</Text>
+            {/* Guest Access */}
+            <TouchableOpacity
+                style={authStyles.guestBtn}
+                onPress={() => router.replace('/(tabs)' as any)}
+            >
+              <Text style={authStyles.guestText}>
+                Ou continue como convidado
+              </Text>
             </TouchableOpacity>
           </View>
 

@@ -1,8 +1,13 @@
 import React from 'react';
 import { TouchableOpacity, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import {styles} from "@/app/Pages/styles";
-import {Category} from "@/app/Models/Category";
+
+// Modular Style and Theme Imports
+import { homeStyles } from "@/app/Styles/homeStyles";
+
+// Models
+import { Category } from "@/app/Models/Category";
+import {COLORS} from "@/constants/theme";
 
 interface CategoryProps {
     category: Category;
@@ -10,10 +15,18 @@ interface CategoryProps {
 }
 
 export const CategoryCard = ({ category, onPress }: CategoryProps) => (
-    <TouchableOpacity style={styles.categoryCard} onPress={onPress}>
-        <View style={styles.categoryIconCircle}>
-            <Ionicons name={category.icon as any} size={24} color="#FF4B91" />
+    <TouchableOpacity
+        style={homeStyles.categoryCard}
+        onPress={onPress}
+        activeOpacity={0.7}
+    >
+        <View style={homeStyles.categoryIconCircle}>
+            <Ionicons
+                name={category.icon as any}
+                size={24}
+                color={COLORS.secondary} // Use central theme color
+            />
         </View>
-        <Text style={styles.categoryName}>{category.name}</Text>
+        <Text style={homeStyles.categoryName}>{category.name}</Text>
     </TouchableOpacity>
 );
