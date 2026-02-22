@@ -12,7 +12,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.TFSoftware.horadabeleza",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["whatsapp"]
+        "LSApplicationQueriesSchemes": [
+          "whatsapp"
+        ]
       }
     },
     "android": {
@@ -44,7 +46,8 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

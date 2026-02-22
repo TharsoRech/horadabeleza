@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, Modal, Image, ScrollView, TouchableOpacity, Linking, TextInput, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { salonDetailStyles as styles } from "@/app/Styles/salonDetailStyles";
 import { COLORS } from "@/constants/theme";
 
+// Models & Repository
 import { Salon } from '../Models/Salon';
 import { Professional } from "@/app/Models/Professional";
 import { Service } from "@/app/Models/Service";
@@ -23,16 +25,40 @@ interface Props {
 export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props) => {
     const [activeTab, setActiveTab] = useState<TabType>('Serviços');
     const [loading, setLoading] = useState(true);
+    const [loadingTimes, setLoadingTimes] = useState(false);
+
+    // Estados de Seleção
+    const [selectedService, setSelectedService] = useState<Service | null>(null);
+    const [selectedProf, setSelectedProf] = useState<Professional | null>(null);
+    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+
+    // Modais e UI Control
+    const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+    const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+    // Dados Carregados
     const [allServices, setAllServices] = useState<Service[]>([]);
     const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-    const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-    const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null);
-
-    const [newRating, setNewRating] = useState(0);
-    const [newComment, setNewComment] = useState("");
+    // Geração dinâmica dos 7 dias baseada na data selecionada
+    const dateList = useMemo(() => {
+        const anchorDate = new Date(selectedDate + "T12:00:00");
+        return Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(anchorDate);
+            d.setDate(d.getDate() + i);
+            return {
+                full: d.toISOString().split('T')[0],
+                day: d.toLocaleDateString('pt-BR', { day: 'numeric' }),
+                month: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase(),
+                weekday: d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')
+            };
+        });
+    }, [selectedDate]);
 
     useEffect(() => {
         if (visible && salon) {
@@ -47,90 +73,62 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                     setAllServices(services);
                     setAllProfessionals(pros);
                     setReviews(revs);
-                } catch (e) {
-                    console.error(e);
-                } finally {
-                    setLoading(false);
-                }
+                } catch (e) { console.error(e); }
+                finally { setLoading(false); }
             }
             fetchData();
         }
     }, [visible, salon]);
 
+    useEffect(() => {
+        if (selectedProf && selectedDate) {
+            setLoadingTimes(true);
+            setSelectedTime(null);
+            repository.getAvailableTimes(selectedProf.id, selectedDate)
+                .then(times => {
+                    setAvailableTimes(times);
+                    setLoadingTimes(false);
+                });
+        }
+    }, [selectedProf, selectedDate]);
+
+    // Handlers
+    const handleFinalConfirm = () => {
+        setShowConfirmPopup(false);
+        // Pequeno delay para a animação do primeiro modal sair
+        setTimeout(() => {
+            setShowSuccessPopup(true);
+        }, 450);
+    };
+
+    const handleCloseSuccess = () => {
+        setShowSuccessPopup(false);
+        setTimeout(() => {
+            onClose();
+            // Reseta para o estado inicial para o próximo uso
+            setSelectedService(null);
+            setSelectedProf(null);
+            setSelectedTime(null);
+            setSelectedDate(new Date().toISOString().split('T')[0]);
+        }, 400);
+    };
+
     const handleContact = async () => {
         if (!salon) return;
         const phone = salon.whatsApp || salon.phone;
-        if (!phone) return;
-
-        const cleanPhone = phone.replace(/\D/g, '');
+        const cleanPhone = phone?.replace(/\D/g, '');
         const whatsappUrl = `whatsapp://send?phone=${cleanPhone}`;
-        const webUrl = `https://wa.me/${cleanPhone}`;
-
-        // Verifica se é simulador para evitar logs de erro no console
-        if (Platform.OS === 'ios' && !Platform.isPad && cleanPhone.length > 0) {
-            // Opcional: Você pode usar uma lib como expo-device para checar se é real
-            // Mas por padrão, vamos tentar o catch de forma mais limpa:
-        }
-
         try {
-            // Tenta WhatsApp primeiro
-            const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
-
-            if (canOpenWhatsApp) {
-                return await Linking.openURL(whatsappUrl);
-            }
-
-            // Se não tem o App, tenta o link da Web (funciona no Simulador abrindo o Safari)
-            const canOpenWeb = await Linking.canOpenURL(webUrl);
-            if (canOpenWeb) {
-                return await Linking.openURL(webUrl);
-            }
-
-            // Se chegar aqui, tenta ligar
-            await Linking.openURL(`tel:${cleanPhone}`);
-
-        } catch (error) {
-            // Se der erro (como no simulador), mostra o número para o desenvolvedor/usuário
-            Alert.alert(
-                "Contato",
-                `Simulador detectado ou App indisponível.\nNúmero: ${phone}`,
-                [{ text: "OK" }]
-            );
+            const canOpen = await Linking.canOpenURL(whatsappUrl);
+            if (canOpen) return await Linking.openURL(whatsappUrl);
+            await Linking.openURL(`https://wa.me/${cleanPhone}`);
+        } catch (e) {
+            Alert.alert("Contato", `Número: ${phone}`);
         }
-    };
-
-    const handleOpenMap = () => {
-        if (!salon) return;
-        const addr = encodeURIComponent(salon.address);
-        // Link universal que funciona em qualquer lugar
-        const url = Platform.select({
-            ios: `http://maps.apple.com/?q=${addr}`,
-            android: `geo:0,0?q=${addr}`,
-            default: `https://www.google.com/maps/search/?api=1&query=${addr}`
-        });
-
-        Linking.openURL(url!).catch(() => Alert.alert("Erro", "Não foi possível abrir o mapa."));
-    };
-
-    const handleSendReview = () => {
-        if (newRating === 0) return;
-        const reviewObj: Review = {
-            salonId: salon?.id ?? "",
-            id: String(Date.now()),
-            userName: "Você",
-            rating: newRating,
-            comment: newComment,
-            createdAt: new Date().toISOString(),
-            userId: "current"
-        };
-        setReviews([reviewObj, ...reviews]);
-        setNewRating(0);
-        setNewComment("");
-        Alert.alert("Sucesso", "Avaliação publicada!");
     };
 
     if (!salon) return null;
-    const canBook = selectedServiceId && selectedProfessionalId;
+    const canConfirm = selectedService && selectedProf && selectedDate && selectedTime;
 
     return (
         <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -156,19 +154,10 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                                     <View style={styles.addressRow}>
                                         <Ionicons name="location" size={14} color={COLORS.primary} />
                                         <Text style={styles.addressText} numberOfLines={1}>{salon.address}</Text>
-                                        {reviews.length > 0 && (
-                                            <View style={styles.ratingBadge}>
-                                                <Ionicons name="star" size={10} color="#FFA800" />
-                                                <Text style={styles.ratingText}>{salon.rating} ({reviews.length})</Text>
-                                            </View>
-                                        )}
                                     </View>
                                 </View>
-                                <TouchableOpacity
-                                    style={[styles.contactBtn, { backgroundColor: salon.whatsApp ? '#25D366' : COLORS.primary }]}
-                                    onPress={handleContact}
-                                >
-                                    <Ionicons name={salon.whatsApp ? "logo-whatsapp" : "call"} size={20} color="#FFF" />
+                                <TouchableOpacity style={[styles.contactBtn, { backgroundColor: '#25D366' }]} onPress={handleContact}>
+                                    <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -176,11 +165,7 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                         <View style={styles.tabBarWrapper}>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
                                 {(['Serviços', 'Sobre', 'Local', 'Reviews'] as TabType[]).map((tab) => (
-                                    <TouchableOpacity
-                                        key={tab}
-                                        onPress={() => setActiveTab(tab)}
-                                        style={[styles.tabItem, activeTab === tab && styles.activeTabItem]}
-                                    >
+                                    <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tabItem, activeTab === tab && styles.activeTabItem]}>
                                         <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
                                     </TouchableOpacity>
                                 ))}
@@ -195,23 +180,23 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                                         {allServices.map(s => (
                                             <TouchableOpacity
                                                 key={s.id}
-                                                style={[styles.serviceRow, selectedServiceId === s.id && styles.selectedItem]}
-                                                onPress={() => { setSelectedServiceId(s.id); setSelectedProfessionalId(null); }}
+                                                style={[styles.serviceRow, selectedService?.id === s.id && styles.selectedItem]}
+                                                onPress={() => { setSelectedService(s); setSelectedProf(null); }}
                                             >
-                                                <Ionicons name={s.icon as any} size={20} color={selectedServiceId === s.id ? COLORS.primary : "#999"} />
+                                                <Ionicons name={s.icon as any} size={20} color={selectedService?.id === s.id ? COLORS.primary : "#999"} />
                                                 <Text style={[styles.serviceLabel, { marginLeft: 12 }]}>{s.name}</Text>
                                             </TouchableOpacity>
                                         ))}
 
-                                        {selectedServiceId && (
-                                            <View style={{ marginTop: 20 }}>
+                                        {selectedService && (
+                                            <View style={{ marginTop: 25 }}>
                                                 <Text style={styles.sectionTitle}>2. Escolha o profissional</Text>
                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                                    {allProfessionals.filter(p => p.serviceIds?.includes(selectedServiceId)).map(p => (
+                                                    {allProfessionals.filter(p => p.serviceIds?.includes(selectedService.id)).map(p => (
                                                         <TouchableOpacity
                                                             key={p.id}
-                                                            style={[styles.profCard, selectedProfessionalId === p.id && styles.selectedItem]}
-                                                            onPress={() => setSelectedProfessionalId(p.id)}
+                                                            style={[styles.profCard, selectedProf?.id === p.id && styles.selectedItem]}
+                                                            onPress={() => setSelectedProf(p)}
                                                         >
                                                             <Image source={{ uri: p.image || salon.image }} style={styles.profImageSmall} />
                                                             <Text style={styles.profName} numberOfLines={1}>{p.name}</Text>
@@ -220,101 +205,117 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                                                 </ScrollView>
                                             </View>
                                         )}
-                                    </View>
-                                )}
 
-                                {activeTab === 'Sobre' && (
-                                    <View>
-                                        <Text style={styles.sectionTitle}>Galeria</Text>
-                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
-                                            {[salon.image, salon.image, salon.image].map((img, idx) => (
-                                                <TouchableOpacity key={idx} onPress={() => setSelectedImage(img as string)}>
-                                                    <Image source={{ uri: img }} style={styles.galleryImage} />
-                                                </TouchableOpacity>
-                                            ))}
-                                        </ScrollView>
-                                        <Text style={styles.sectionTitle}>História</Text>
-                                        <Text style={styles.descriptionText}>{salon.description}</Text>
-                                    </View>
-                                )}
+                                        {selectedProf && (
+                                            <View style={{ marginTop: 25 }}>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                                    <Text style={styles.sectionTitle}>3. Selecione a data</Text>
+                                                    <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{flexDirection: 'row', alignItems: 'center'}}>
+                                                        <Ionicons name="calendar" size={16} color={COLORS.primary} />
+                                                        <Text style={{color: COLORS.primary, fontWeight: 'bold', marginLeft: 4}}>Calendário</Text>
+                                                    </TouchableOpacity>
+                                                </View>
 
-                                {activeTab === 'Local' && (
-                                    <View style={styles.localContainer}>
-                                        <Ionicons name="map" size={48} color={COLORS.primary} />
-                                        <Text style={styles.localTitle}>{salon.address}</Text>
-                                        <TouchableOpacity style={styles.mapBtn} onPress={handleOpenMap}>
-                                            <Text style={styles.bookBtnText}>Abrir no GPS</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
-
-                                {activeTab === 'Reviews' && (
-                                    <View>
-                                        {salon.userHasVisited ? (
-                                            <View style={styles.reviewForm}>
-                                                <Text style={styles.sectionTitle}>Sua Avaliação</Text>
-                                                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                                                    {[1, 2, 3, 4, 5].map(s => (
-                                                        <TouchableOpacity key={s} onPress={() => setNewRating(s)}>
-                                                            <Ionicons name={s <= newRating ? "star" : "star-outline"} size={26} color="#FFA800" />
+                                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                                    {dateList.map(item => (
+                                                        <TouchableOpacity
+                                                            key={item.full}
+                                                            style={[styles.dateCard, selectedDate === item.full && styles.selectedItem, {minWidth: 75, height: 85}]}
+                                                            onPress={() => { setSelectedDate(item.full); setSelectedTime(null); }}
+                                                        >
+                                                            <Text style={[styles.dateMonth, selectedDate === item.full && {color: COLORS.primary}]}>{item.month}</Text>
+                                                            <Text style={[styles.dateDay, selectedDate === item.full && {color: COLORS.primary}]}>{item.day}</Text>
+                                                            <Text style={[styles.dateWeekday, selectedDate === item.full && {color: COLORS.primary}]}>{item.weekday}</Text>
                                                         </TouchableOpacity>
                                                     ))}
-                                                </View>
-                                                <TextInput
-                                                    style={styles.reviewInput}
-                                                    placeholder="Como foi seu atendimento?"
-                                                    multiline
-                                                    value={newComment}
-                                                    onChangeText={setNewComment}
-                                                />
-                                                {newRating > 0 && (
-                                                    <TouchableOpacity style={styles.sendReviewBtn} onPress={handleSendReview}>
-                                                        <Text style={styles.sendReviewBtnText}>Publicar agora</Text>
-                                                    </TouchableOpacity>
+                                                </ScrollView>
+
+                                                {showDatePicker && (
+                                                        <DateTimePicker
+                                                            value={new Date(selectedDate + "T12:00:00")}
+                                                            mode="date"
+                                                            style={{ marginTop: 25 }}
+                                                            minimumDate={new Date()}
+                                                            onChange={(e, d) => {
+                                                                setShowDatePicker(false);
+                                                                if (d) setSelectedDate(d.toISOString().split('T')[0]);
+                                                            }}
+                                                        />
                                                 )}
                                             </View>
-                                        ) : (
-                                            <View style={styles.lockWarning}>
-                                                <Ionicons name="lock-closed" size={18} color="#999" />
-                                                <Text style={styles.lockText}>Somente clientes que ja são clientes podem avaliar.</Text>
+                                        )}
+
+                                        {selectedDate && selectedProf && (
+                                            <View style={{ marginTop: 25 }}>
+                                                <Text style={styles.sectionTitle}>4. Horários disponíveis</Text>
+                                                {loadingTimes ? <Text style={{color: '#999'}}>Buscando...</Text> : (
+                                                    <View style={styles.timeGrid}>
+                                                        {availableTimes.map(t => (
+                                                            <TouchableOpacity
+                                                                key={t}
+                                                                style={[styles.timeChip, selectedTime === t && styles.selectedTimeChip]}
+                                                                onPress={() => setSelectedTime(t)}
+                                                            >
+                                                                <Text style={[styles.timeText, selectedTime === t && {color: '#FFF'}]}>{t}</Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
+                                                )}
                                             </View>
                                         )}
-                                        {reviews.map(r => (
-                                            <View key={r.id} style={styles.reviewCard}>
-                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                    <Text style={{ fontWeight: 'bold' }}>{r.userName}</Text>
-                                                    <Text style={{ color: '#FFA800' }}>★ {r.rating}</Text>
-                                                </View>
-                                                <Text style={styles.reviewComment}>{r.comment}</Text>
-                                            </View>
-                                        ))}
                                     </View>
                                 )}
+                                {/* Outras abas aqui... */}
                             </View>
                         )}
                     </ScrollView>
 
-                    {/* FullScreen Image Modal - FIX AQUI */}
-                    <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
-                        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center' }}>
-                            <TouchableOpacity style={{ position: 'absolute', top: 50, right: 25, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
-                                <Ionicons name="close-circle" size={44} color="#FFF" />
-                            </TouchableOpacity>
-                            {selectedImage && (
-                                <Image source={{ uri: selectedImage }} style={{ width: '100%', height: '80%', resizeMode: 'contain' }} />
-                            )}
+                    {/* Popup de Revisão (Antes de Confirmar) */}
+                    <Modal visible={showConfirmPopup} transparent animationType="fade">
+                        <View style={styles.modalConfirmOverlay}>
+                            <View style={styles.confirmCard}>
+                                <Text style={styles.confirmTitle}>Revisar Agendamento</Text>
+                                <View style={styles.confirmInfoBox}>
+                                    <DetailItem icon="cut" label="Serviço" value={selectedService?.name} />
+                                    <DetailItem icon="person" label="Profissional" value={selectedProf?.name} />
+                                    <DetailItem icon="calendar" label="Data" value={new Date(selectedDate + "T12:00:00").toLocaleDateString('pt-BR', {dateStyle: 'long'})} />
+                                    <DetailItem icon="time" label="Horário" value={selectedTime} />
+                                </View>
+                                <TouchableOpacity style={styles.confirmFinalBtn} onPress={handleFinalConfirm}>
+                                    <Text style={styles.confirmFinalBtnText}>Confirmar Agora</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={{marginTop: 15, alignSelf: 'center'}} onPress={() => setShowConfirmPopup(false)}>
+                                    <Text style={{color: '#999'}}>Voltar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </Modal>
+
+                    {/* Popup de Sucesso Personalizado */}
+                    <Modal visible={showSuccessPopup} transparent animationType="fade">
+                        <View style={styles.modalConfirmOverlay}>
+                            <View style={[styles.confirmCard, {alignItems: 'center', paddingVertical: 40}]}>
+                                <View style={styles.successIconContainer}>
+                                    <Ionicons name="checkmark" size={50} color="#FFF" />
+                                </View>
+                                <Text style={[styles.confirmTitle, {marginTop: 20}]}>Tudo pronto!</Text>
+                                <Text style={{textAlign: 'center', color: '#666', marginBottom: 30}}>Seu agendamento foi realizado com sucesso.</Text>
+                                <TouchableOpacity style={[styles.confirmFinalBtn, {width: '100%'}]} onPress={handleCloseSuccess}>
+                                    <Text style={styles.confirmFinalBtnText}>Fechar</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </Modal>
 
                     {activeTab === 'Serviços' && (
                         <View style={styles.footer}>
                             <TouchableOpacity
-                                style={[styles.bookBtn, !canBook && { backgroundColor: '#EEE' }]}
-                                disabled={!canBook}
-                                onPress={() => Alert.alert("Sucesso", "Agendamento realizado!")}
+                                style={[styles.bookBtn, !canConfirm && { backgroundColor: '#EEE' }]}
+                                disabled={!canConfirm}
+                                onPress={() => setShowConfirmPopup(true)}
                             >
-                                <Text style={[styles.bookBtnText, !canBook && { color: '#999' }]}>
-                                    {canBook ? "Confirmar Agendamento" : "Complete a seleção"}
+                                <Text style={[styles.bookBtnText, !canConfirm && { color: '#999' }]}>
+                                    {canConfirm ? `Agendar para ${selectedTime}` : "Complete a seleção"}
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -324,3 +325,16 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         </Modal>
     );
 };
+
+// Componente Interno para Detalhes do Resumo
+const DetailItem = ({ icon, label, value }: any) => (
+    <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
+        <View style={{width: 32, height: 32, borderRadius: 8, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginRight: 12}}>
+            <Ionicons name={icon} size={16} color={COLORS.primary} />
+        </View>
+        <View>
+            <Text style={{fontSize: 10, color: '#999', textTransform: 'uppercase'}}>{label}</Text>
+            <Text style={{fontSize: 14, fontWeight: 'bold', color: COLORS.textMain}}>{value}</Text>
+        </View>
+    </View>
+);

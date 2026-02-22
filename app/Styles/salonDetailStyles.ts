@@ -99,4 +99,86 @@ export const salonDetailStyles = StyleSheet.create({
     },
     bookBtn: { backgroundColor: COLORS.primary, height: 54, borderRadius: 27, justifyContent: 'center', alignItems: 'center' },
     bookBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+    dateCard: {
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        backgroundColor: '#F9F9F9',
+        borderRadius: 12,
+        marginRight: 8,
+        borderWidth: 1,
+        borderColor: '#EEE',
+        alignItems: 'center',
+        minWidth: 80
+    },
+    dateLabel: { fontSize: 13, fontWeight: '600', color: '#666' },
+    timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    timeChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#EEE',
+        backgroundColor: '#FFF'
+    },
+    selectedTimeChip: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+    timeText: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+    modalConfirmOverlay: {
+        flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center', alignItems: 'center', padding: 20
+    },
+    confirmCard: {
+        width: '100%', backgroundColor: '#FFF',
+        borderRadius: 24, padding: 25,
+        elevation: 10, shadowColor: '#000', shadowOpacity: 0.2
+    },
+    confirmTitle: {
+        fontSize: 20, fontWeight: 'bold', textAlign: 'center',
+        marginVertical: 15, color: COLORS.textMain
+    },
+    confirmInfoBox: {
+        backgroundColor: '#F8F9FA', borderRadius: 16,
+        padding: 15, marginVertical: 10
+    },
+    confirmFinalBtn: {
+        backgroundColor: COLORS.primary, height: 54,
+        borderRadius: 15, justifyContent: 'center', alignItems: 'center',
+        marginTop: 10
+    },
+    confirmFinalBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+    successIconStyle : {
+        width: 100, height: 100, borderRadius: 50,
+        backgroundColor: '#25D366', justifyContent: 'center',
+        alignItems: 'center', marginBottom: 10,
+        elevation: 5, shadowColor: '#25D366', shadowOpacity: 0.4
+    },
+    dateMonth: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#999',
+        marginBottom: 2,
+    },
+    dateDay: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: COLORS.textMain,
+    },
+    dateWeekday: {
+        fontSize: 10,
+        color: '#999',
+        marginTop: 2,
+    },
+    successIconContainer: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: '#25D366',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 10,
+        shadowColor: "#25D366",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+    },
 });
