@@ -92,3 +92,15 @@ export const HomeSkeleton = () => (
         </View>
     </ScrollView>
 );
+
+export const ModalDetailSkeleton = () => (
+    <View style={{ padding: 20 }}>
+        <AnimatedSkeleton height={25} width="40%" style={{ marginBottom: 20 }} />
+        {[1, 2, 3, 4].map(i => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+                <AnimatedSkeleton width={40} height={40} borderRadius={8} />
+                <AnimatedSkeleton width="70%" height={20} style={{ marginLeft: 15 }} />
+            </View>
+        ))}
+    </View>
+);

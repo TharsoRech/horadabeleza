@@ -15,6 +15,7 @@ import { SearchSalonCard } from "@/app/Components/SearchSalonCard";
 import { SearchProfessionalCard } from "@/app/Components/SearchProfessionalCard";
 import { NotificationPopup } from "@/app/Components/NotificationPopup";
 import { SearchResultSkeleton, HomeSkeleton } from "@/app/Components/AnimatedSkeleton";
+import { SalonDetailModal } from "@/app/Components/SalonDetailModal"; // Importado
 
 // Repositories & Models
 import { ISalonRepository } from "@/app/Repository/Interfaces/ISalonRepository";
@@ -34,7 +35,8 @@ export default function HomeScreen() {
     const insets = useSafeAreaInsets();
     const { currentUser } = useAuth();
 
-    const salonRepository = useMemo<ISalonRepository>(() => new SalonRepository(), []);
+    // Instância estável do repositório
+    const salonRepository = useMemo(() => new SalonRepository(), []);
     const notificationRepository = useMemo<INotificationRepository>(() => new NotificationRepository(), []);
 
     // Estados de Dados Iniciais
@@ -55,34 +57,44 @@ export default function HomeScreen() {
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
 
+    // ESTADOS PARA O MODAL DE DETALHES
+    const [selectedSalon, setSelectedSalon] = useState<Salon | null>(null);
+    const [modalVisible, setModalVisible] = useState(false);
+
     const displayName = currentUser?.name || "Convidado";
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
-    // Carga inicial dos dados da Home
-    useEffect(() => {
-        async function loadData() {
-            setLoading(true);
-            try {
-                const [salonsData, servicesData, notificationsData, professionalsData] = await Promise.all([
-                    salonRepository.getPopularSalons(),
-                    salonRepository.getServices(),
-                    notificationRepository.getNotifications(),
-                    salonRepository.getTopProfessionals()
-                ]);
-                setSalons(salonsData);
-                setServices(servicesData);
-                setNotifications(notificationsData);
-                setProfessionals(professionalsData);
-            } catch (error) {
-                console.error("Erro ao carregar dados iniciais:", error);
-            } finally {
-                setLoading(false);
-            }
+    // --- HANDLERS ---
+
+    const handleOpenSalonDetails = (salon: Salon) => {
+        setSelectedSalon(salon);
+        setModalVisible(true);
+    };
+
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [salonsData, servicesData, notificationsData, professionalsData] = await Promise.all([
+                salonRepository.getPopularSalons(),
+                salonRepository.getServices(),
+                notificationRepository.getNotifications(),
+                salonRepository.getTopProfessionals()
+            ]);
+            setSalons(salonsData);
+            setServices(servicesData);
+            setNotifications(notificationsData);
+            setProfessionals(professionalsData);
+        } catch (error) {
+            console.error("Erro ao carregar dados iniciais:", error);
+        } finally {
+            setLoading(false);
         }
-        loadData();
     }, [salonRepository, notificationRepository]);
 
-    // Função Principal de Busca e Paginação
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
     const performSearch = useCallback(async (text: string, filter: SearchFilter, pageNum: number) => {
         if (pageNum === 1) setSearchLoading(true);
         else setIsMoreLoading(true);
@@ -95,7 +107,6 @@ export default function HomeScreen() {
             } else {
                 setSearchResults(prev => [...prev, ...results]);
             }
-            // Define se ainda há dados para carregar (baseado no limite de 5 do repo)
             setHasMore(results.length >= 5);
         } catch (error) {
             console.error("Erro na busca:", error);
@@ -105,29 +116,26 @@ export default function HomeScreen() {
         }
     }, [salonRepository]);
 
-    // Debounce para busca via digitação
     useEffect(() => {
-        if (isSearching && searchText.length > 0) {
+        if (isSearching && searchText.trim().length > 0) {
             setPage(1);
             const delayDebounce = setTimeout(() => {
                 performSearch(searchText, activeFilter, 1);
-            }, 300);
+            }, 350);
             return () => clearTimeout(delayDebounce);
         }
     }, [searchText, activeFilter, isSearching, performSearch]);
 
-    // Handler para o "Ver Todos" e cliques em categorias
     const handleTriggerSearch = (filter: SearchFilter, text: string = "") => {
         setSearchResults([]);
         setSearchText(text);
         setActiveFilter(filter);
         setIsSearching(true);
         setPage(1);
-        performSearch(text, filter, 1); // Execução imediata sem esperar debounce
+        performSearch(text, filter, 1);
     };
 
     const handleLoadMore = () => {
-        // Trava para evitar múltiplas chamadas simultâneas
         if (!isMoreLoading && hasMore && isSearching && !searchLoading) {
             const nextPage = page + 1;
             setPage(nextPage);
@@ -149,6 +157,14 @@ export default function HomeScreen() {
                 visible={notifVisible}
                 onClose={() => setNotifVisible(false)}
                 notifications={notifications}
+            />
+
+            {/* MODAL DE DETALHES */}
+            <SalonDetailModal
+                visible={modalVisible}
+                salon={selectedSalon}
+                repository={salonRepository}
+                onClose={() => setModalVisible(false)}
             />
 
             {!isSearching && (
@@ -211,14 +227,17 @@ export default function HomeScreen() {
                     ) : (
                         <FlatList<Salon | Professional>
                             data={searchResults}
-                            keyExtractor={(item, index) => `${'specialty' in item ? 'p' : 's'}-${item.id}-${index}`}
+                            keyExtractor={(item) => `${'specialty' in item ? 'p' : 's'}-${item.id}`}
                             contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
                             renderItem={({ item }) => (
                                 <View style={{ marginBottom: 4 }}>
                                     {'specialty' in item ? (
                                         <SearchProfessionalCard professional={item as Professional} onPress={() => {}} />
                                     ) : (
-                                        <SearchSalonCard salon={item as Salon} onPress={() => {}} />
+                                        <SearchSalonCard
+                                            salon={item as Salon}
+                                            onPress={handleOpenSalonDetails}
+                                        />
                                     )}
                                 </View>
                             )}
@@ -262,7 +281,11 @@ export default function HomeScreen() {
                             </View>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={homeStyles.salonsScrollContainer} snapToInterval={266} decelerationRate="fast">
                                 {salons.map((salon) => (
-                                    <SalonCard key={salon.id} salon={salon} onPress={() => {}} />
+                                    <SalonCard
+                                        key={salon.id}
+                                        salon={salon}
+                                        onPress={handleOpenSalonDetails}
+                                    />
                                 ))}
                             </ScrollView>
                         </View>
