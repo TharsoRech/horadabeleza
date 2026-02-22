@@ -15,10 +15,12 @@ import { SearchSalonCard } from "@/app/Components/SearchSalonCard";
 import { SearchProfessionalCard } from "@/app/Components/SearchProfessionalCard";
 import { NotificationPopup } from "@/app/Components/NotificationPopup";
 import { SearchResultSkeleton, HomeSkeleton } from "@/app/Components/AnimatedSkeleton";
-import { SalonDetailModal } from "@/app/Components/SalonDetailModal"; // Importado
+
+// Modais
+import { SalonDetailModal } from "@/app/Components/SalonDetailModal";
+import { ProfessionalDetailModal } from "@/app/Components/ProfessionalDetailModal"; // Importado
 
 // Repositories & Models
-import { ISalonRepository } from "@/app/Repository/Interfaces/ISalonRepository";
 import { SalonRepository } from '@/app/Repository/SalonRepository';
 import { INotificationRepository } from "@/app/Repository/Interfaces/INotificationRepository";
 import { NotificationRepository } from "@/app/Repository/NotificationRepository";
@@ -57,9 +59,12 @@ export default function HomeScreen() {
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
 
-    // ESTADOS PARA O MODAL DE DETALHES
+    // --- ESTADOS PARA OS MODAIS ---
     const [selectedSalon, setSelectedSalon] = useState<Salon | null>(null);
-    const [modalVisible, setModalVisible] = useState(false);
+    const [salonModalVisible, setSalonModalVisible] = useState(false);
+
+    const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
+    const [profModalVisible, setProfModalVisible] = useState(false);
 
     const displayName = currentUser?.name || "Convidado";
     const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -68,7 +73,12 @@ export default function HomeScreen() {
 
     const handleOpenSalonDetails = (salon: Salon) => {
         setSelectedSalon(salon);
-        setModalVisible(true);
+        setSalonModalVisible(true);
+    };
+
+    const handleOpenProfessionalDetails = (prof: Professional) => {
+        setSelectedProfessional(prof);
+        setProfModalVisible(true);
     };
 
     const loadData = useCallback(async () => {
@@ -159,12 +169,20 @@ export default function HomeScreen() {
                 notifications={notifications}
             />
 
-            {/* MODAL DE DETALHES */}
+            {/* MODAL DE SALÃO */}
             <SalonDetailModal
-                visible={modalVisible}
+                visible={salonModalVisible}
                 salon={selectedSalon}
                 repository={salonRepository}
-                onClose={() => setModalVisible(false)}
+                onClose={() => setSalonModalVisible(false)}
+            />
+
+            {/* MODAL DE PROFISSIONAL */}
+            <ProfessionalDetailModal
+                visible={profModalVisible}
+                professional={selectedProfessional}
+                onOpenSalon={(salon) => handleOpenSalonDetails(salon)}
+                onClose={() => setProfModalVisible(false)}
             />
 
             {!isSearching && (
@@ -232,7 +250,10 @@ export default function HomeScreen() {
                             renderItem={({ item }) => (
                                 <View style={{ marginBottom: 4 }}>
                                     {'specialty' in item ? (
-                                        <SearchProfessionalCard professional={item as Professional} onPress={() => {}} />
+                                        <SearchProfessionalCard
+                                            professional={item as Professional}
+                                            onPress={() => handleOpenProfessionalDetails(item as Professional)}
+                                        />
                                     ) : (
                                         <SearchSalonCard
                                             salon={item as Salon}
@@ -299,7 +320,11 @@ export default function HomeScreen() {
                             </View>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingLeft: 20, paddingTop: 10 }}>
                                 {professionals.map((prof) => (
-                                    <ProfessionalCard key={prof.id} professional={prof} onPress={() => {}} />
+                                    <ProfessionalCard
+                                        key={prof.id}
+                                        professional={prof}
+                                        onPress={() => handleOpenProfessionalDetails(prof)}
+                                    />
                                 ))}
                             </ScrollView>
                         </View>

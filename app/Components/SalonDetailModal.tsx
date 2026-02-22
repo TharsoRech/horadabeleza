@@ -1,16 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, Modal, Image, ScrollView, TouchableOpacity, Linking, TextInput, Platform, Alert } from 'react-native';
+import { View, Text, Modal, Image, ScrollView, TouchableOpacity, Linking, TextInput, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { salonDetailStyles as styles } from "@/app/Styles/salonDetailStyles";
 import { COLORS } from "@/constants/theme";
 
+// Models & Repositories
 import { Salon } from '../Models/Salon';
 import { Professional } from "@/app/Models/Professional";
 import { Service } from "@/app/Models/Service";
 import { Review } from "@/app/Models/Review";
 import { SalonRepository } from "@/app/Repository/SalonRepository";
+
+// Components
 import { ModalDetailSkeleton } from "@/app/Components/AnimatedSkeleton";
+import { ProfessionalDetailModal } from "@/app/Components/ProfessionalDetailModal";
+import {DetailItem} from "@/app/Components/DetailItem";
 
 type TabType = 'Serviços' | 'Sobre' | 'Local' | 'Reviews';
 
@@ -26,12 +31,16 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
     const [loading, setLoading] = useState(true);
     const [loadingTimes, setLoadingTimes] = useState(false);
 
-    // Estados de Seleção
+    // Estados de Seleção de Agendamento
     const [selectedService, setSelectedService] = useState<Service | null>(null);
     const [selectedProf, setSelectedProf] = useState<Professional | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [selectedTime, setSelectedTime] = useState<string | null>(null);
     const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+
+    // Estados para o Modal de Perfil do Profissional
+    const [profDetailVisible, setProfDetailVisible] = useState(false);
+    const [profForDetail, setProfForDetail] = useState<Professional | null>(null);
 
     // Modais e UI Control
     const [showConfirmPopup, setShowConfirmPopup] = useState(false);
@@ -93,7 +102,13 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         }
     }, [selectedProf, selectedDate]);
 
-    // Handlers
+    // Handlers do Profissional
+    const handleOpenProfessionalProfile = (prof: Professional) => {
+        setProfForDetail(prof);
+        setProfDetailVisible(true);
+    };
+
+    // Outros Handlers
     const handleFinalConfirm = () => {
         setShowConfirmPopup(false);
         setTimeout(() => setShowSuccessPopup(true), 450);
@@ -114,6 +129,7 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         const reviewObj: Review = {
             salonId: salon?.id ?? "",
             id: String(Date.now()),
+            professionalId: "",
             userName: "Você",
             rating: newRating,
             comment: newComment,
@@ -132,6 +148,15 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         <Modal visible={visible} animationType="slide" transparent>
             <View style={styles.overlay}>
                 <View style={styles.content}>
+
+                    {/* Modal de Detalhes do Profissional (Integrado) */}
+                    <ProfessionalDetailModal
+                        visible={profDetailVisible}
+                        professional={profForDetail}
+                        onClose={() => setProfDetailVisible(false)}
+                        onOpenSalon={() => setProfDetailVisible(false)} // Já estamos no salão
+                    />
+
                     <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
                         <Ionicons name="close" size={22} color={COLORS.textMain} />
                     </TouchableOpacity>
@@ -189,15 +214,41 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                                                 <Text style={styles.sectionTitle}>2. Escolha o profissional</Text>
                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                                     {allProfessionals.filter(p => p.serviceIds?.includes(selectedService.id)).map(p => (
-                                                        <TouchableOpacity key={p.id} style={[styles.profCard, selectedProf?.id === p.id && styles.selectedItem]} onPress={() => setSelectedProf(p)}>
-                                                            <Image source={{ uri: p.image || salon.image }} style={styles.profImageSmall} />
-                                                            <Text style={styles.profName}>{p.name}</Text>
-                                                        </TouchableOpacity>
+                                                        <View key={p.id} style={{ position: 'relative', marginRight: 15 }}>
+                                                            <TouchableOpacity
+                                                                style={[styles.profCard, selectedProf?.id === p.id && styles.selectedItem, { marginRight: 0 }]}
+                                                                onPress={() => setSelectedProf(p)}
+                                                            >
+                                                                <Image source={{ uri: p.image || salon.image }} style={styles.profImageSmall} />
+                                                                <Text style={styles.profName}>{p.name}</Text>
+                                                            </TouchableOpacity>
+
+                                                            {/* Ícone de Informação para Perfil Profissional */}
+                                                            <TouchableOpacity
+                                                                onPress={() => handleOpenProfessionalProfile(p)}
+                                                                style={{
+                                                                    position: 'absolute',
+                                                                    top: 5,
+                                                                    right: 5,
+                                                                    backgroundColor: '#FFF',
+                                                                    borderRadius: 12,
+                                                                    padding: 2,
+                                                                    elevation: 3,
+                                                                    shadowColor: '#000',
+                                                                    shadowOffset: { width: 0, height: 1 },
+                                                                    shadowOpacity: 0.2,
+                                                                    shadowRadius: 1.5,
+                                                                }}
+                                                            >
+                                                                <Ionicons name="information-circle-outline" size={20} color={COLORS.primary} />
+                                                            </TouchableOpacity>
+                                                        </View>
                                                     ))}
                                                 </ScrollView>
                                             </View>
                                         )}
 
+                                        {/* Restante do fluxo de agendamento: Data e Horário */}
                                         {selectedProf && (
                                             <View style={{ marginTop: 25 }}>
                                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -237,6 +288,7 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                                     </View>
                                 )}
 
+                                {/* Outras Tabs: Sobre, Local, Reviews */}
                                 {activeTab === 'Sobre' && (
                                     <View>
                                         <Text style={styles.sectionTitle}>Galeria</Text>
@@ -311,7 +363,7 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                         )}
                     </ScrollView>
 
-                    {/* MODAL: IMAGEM EXPANDIDA */}
+                    {/* Modais de Suporte (Imagem, Confirmação, Sucesso) */}
                     <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
                         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center' }}>
                             <TouchableOpacity style={{ position: 'absolute', top: 50, right: 25, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
@@ -321,7 +373,6 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                         </View>
                     </Modal>
 
-                    {/* POPUP: REVISÃO ANTES DE AGENDAR */}
                     <Modal visible={showConfirmPopup} transparent animationType="fade">
                         <View style={styles.modalConfirmOverlay}>
                             <View style={styles.confirmCard}>
@@ -342,7 +393,6 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                         </View>
                     </Modal>
 
-                    {/* POPUP: SUCESSO (COM INFORMAÇÕES) */}
                     <Modal visible={showSuccessPopup} transparent animationType="fade">
                         <View style={styles.modalConfirmOverlay}>
                             <View style={[styles.confirmCard, {alignItems: 'center'}]}>
@@ -375,15 +425,3 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         </Modal>
     );
 };
-
-const DetailItem = ({ icon, label, value }: any) => (
-    <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
-        <View style={{width: 28, height: 28, borderRadius: 6, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginRight: 10}}>
-            <Ionicons name={icon} size={14} color={COLORS.primary} />
-        </View>
-        <View>
-            <Text style={{fontSize: 9, color: '#999', textTransform: 'uppercase'}}>{label}</Text>
-            <Text style={{fontSize: 13, fontWeight: 'bold', color: COLORS.textMain}} numberOfLines={1}>{value}</Text>
-        </View>
-    </View>
-);
