@@ -6,6 +6,15 @@ import { MOCK_PROFESSIONALS_LIST, Professional } from "@/app/Models/Professional
 import {MOCK_REVIEWS, Review} from "@/app/Models/Review";
 
 export class SalonRepository implements ISalonRepository {
+    async getSalonById(salonId: string): Promise<Salon | null> {
+        const found = MOCK_SALONS_LIST.find(s => s.id === salonId);
+
+        if (!found) return null;
+
+        // É crucial passar pelo _attachImages para o Base64 ser gerado/recuperado
+        const processed = await this._attachImages([found]);
+        return processed[0] as Salon;
+    }
     // Cache para evitar que o Base64 seja re-gerado, prevenindo que as imagens "pisquem"
     private imageCache: Map<string, string> = new Map();
 

@@ -12,5 +12,6 @@ export interface ISalonRepository {
     getSalonProfessionals(professionalIds: string[]): Promise<Professional[]>
     getSalonReviews(salonId: string): Promise<Review[]>
     getAvailableTimes(professionalId: string, date: string): Promise<string[]>
+    getSalonById(salonId: string): Promise<Salon | null>
     searchAll(query: string, filter: string, page: number): Promise<(Salon | Professional)[]>;
 }

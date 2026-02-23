@@ -12,4 +12,5 @@ export interface IProfessionalRepository {
         userName: string,
         review: Partial<Review>
     ): Promise<Review>;
+    getProfessionalById(profId: string): Promise<Professional | null>
 }

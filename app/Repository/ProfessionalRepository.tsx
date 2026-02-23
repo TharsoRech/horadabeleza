@@ -2,8 +2,48 @@ import { IProfessionalRepository } from "./Interfaces/IProfessionalRepository";
 import { Review, MOCK_REVIEWS } from "@/app/Models/Review";
 import { Salon, MOCK_SALONS_LIST } from "@/app/Models/Salon";
 import { imageToBase64 } from "@/app/Helpers/getBase64FromAsset";
+import {MOCK_PROFESSIONALS_LIST, Professional} from "../Models/Professional";
 
 export class ProfessionalRepository implements IProfessionalRepository {
+    /**
+     * Helper para processar imagem do profissional (Base64)
+     */
+    private async _attachProfessionalImage(prof: Professional): Promise<Professional> {
+        const profPhotos = [
+            require('@/assets/images/person1.jpg'),
+            require('@/assets/images/person2.jpg')
+        ];
+
+        const cacheKey = `p-${prof.id}`;
+        if (this.imageCache.has(cacheKey)) {
+            return { ...prof, image: this.imageCache.get(cacheKey) };
+        }
+
+        try {
+            // Lógica simples de index para o mock
+            const photoAsset = profPhotos[0];
+            const base64 = await imageToBase64(photoAsset);
+            if (base64) {
+                this.imageCache.set(cacheKey, base64);
+                return { ...prof, image: base64 };
+            }
+        } catch (e) {
+            console.warn("Erro ao processar imagem do profissional", e);
+        }
+        return prof;
+    }
+
+    /**
+     * Implementação do getProfessionalById
+     */
+    async getProfessionalById(profId: string): Promise<Professional | null> {
+        // MOCK_PROFESSIONALS_LIST deve estar acessível/importado
+        const found = MOCK_PROFESSIONALS_LIST.find(p => p.id === profId);
+
+        if (!found) return null;
+
+        return await this._attachProfessionalImage(found);
+    }
     private imageCache: Map<string, string> = new Map();
 
     private async _attachSalonImage(salon: Salon): Promise<Salon> {

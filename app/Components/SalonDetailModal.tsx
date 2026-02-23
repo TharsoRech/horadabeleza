@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, Modal, Image, ScrollView, TouchableOpacity, Linking, TextInput, Platform } from 'react-native';
+import {
+    View,
+    Text,
+    Modal,
+    Image,
+    ScrollView,
+    TouchableOpacity,
+    Linking,
+    TextInput,
+    Platform,
+    Alert
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { salonDetailStyles as styles } from "@/app/Styles/salonDetailStyles";
@@ -70,6 +81,45 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
             };
         });
     }, [selectedDate]);
+
+    const handleContact = () => {
+        const whats = salon?.whatsApp;
+        const phone = salon?.whatsApp;
+
+        if (whats) {
+            // Limpa o número: remove tudo que não é dígito
+            const cleanNumber = whats.replace(/\D/g, '');
+
+            // Garante que o código do país (55) esteja presente se o número tiver 11 dígitos
+            const finalNumber = cleanNumber.length === 11 ? `55${cleanNumber}` : cleanNumber;
+
+            const msg = encodeURIComponent(`Olá, gostaria de falar sobre meu agendamento pelo Hora da Beleza.`);
+
+            // URL universal (mais estável que whatsapp://)
+            const url = `https://wa.me/${finalNumber}?text=${msg}`;
+
+            Linking.canOpenURL(url).then(supported => {
+                if (supported) {
+                    return Linking.openURL(url);
+                } else {
+                    // Se não conseguir abrir o link wa.me (raro), tenta o telefone como fallback
+                    if (phone) {
+                        Linking.openURL(`tel:${phone.replace(/\D/g, '')}`);
+                    } else {
+                        Alert.alert("Erro", "O WhatsApp não parece estar instalado.");
+                    }
+                }
+            }).catch(() => {
+                Alert.alert("Erro", "Não foi possível abrir o link de contato.");
+            });
+
+        } else if (phone) {
+            const cleanNumber = phone.replace(/\D/g, '');
+            Linking.openURL(`tel:${cleanNumber}`);
+        } else {
+            Alert.alert("Contato", "O número de contato deste salão não foi encontrado.");
+        }
+    };
 
     useEffect(() => {
         if (visible && salon) {
@@ -178,12 +228,23 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                                         <Text style={styles.addressText} numberOfLines={1}>{salon.address}</Text>
                                     </View>
                                 </View>
-                                <TouchableOpacity
-                                    style={[styles.contactBtn, { backgroundColor: '#25D366' }]}
-                                    onPress={() => Linking.openURL(`https://wa.me/${salon.whatsApp?.replace(/\D/g, '')}`)}
-                                >
-                                    <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
-                                </TouchableOpacity>
+
+                                {/* Lógica de Contato: Prioriza WhatsApp, senão Ligação */}
+                                {salon.whatsApp ? (
+                                    <TouchableOpacity
+                                        style={[styles.contactBtn, { backgroundColor: '#25D366' }]}
+                                        onPress={handleContact}
+                                    >
+                                        <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
+                                    </TouchableOpacity>
+                                ) : salon.phone ? (
+                                    <TouchableOpacity
+                                        style={[styles.contactBtn, { backgroundColor: COLORS.primary }]}
+                                        onPress={handleContact}
+                                    >
+                                        <Ionicons name="call" size={20} color="#FFF" />
+                                    </TouchableOpacity>
+                                ) : null}
                             </View>
                         </View>
 
