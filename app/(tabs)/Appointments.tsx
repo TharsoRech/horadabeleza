@@ -19,11 +19,25 @@ import { AppointmentCard } from '@/app/Components/AppointmentCard';
 import { AppointmentDetailModal } from '@/app/Components/AppointmentDetailModal';
 import { SalonDetailModal } from "@/app/Components/SalonDetailModal";
 import { ProfessionalDetailModal } from "@/app/Components/ProfessionalDetailModal";
+import {useAuth} from "@/app/Managers/AuthManager";
+import {AuthGuardPlaceholder} from "@/app/Components/AuthGuardPlaceholder";
 
 const STATUS_OPTIONS: Appointment['status'][] = ['Confirmado', 'Pendente', 'Concluído', 'Cancelado'];
 
 export default function AppointmentsScreen() {
     const insets = useSafeAreaInsets();
+    const { isAuthenticated } = useAuth(); // Importe do seu AuthManager
+
+    // Se não estiver logado, nem executa o restante da lógica
+    if (!isAuthenticated) {
+        return (
+            <AuthGuardPlaceholder
+                title="Agendamentos"
+                description="Você precisa estar logado para ver e marcar seus horários de beleza."
+                icon="calendar-outline"
+            />
+        );
+    }
 
     // Instanciando os repositórios corretos
     const appointmentRepo = useMemo(() => new AppointmentRepository(), []);

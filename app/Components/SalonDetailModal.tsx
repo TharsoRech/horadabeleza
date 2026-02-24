@@ -9,13 +9,13 @@ import {
     Linking,
     Platform,
     ActivityIndicator,
-    TextInput,
-    Alert
+    TextInput
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { salonDetailStyles as styles } from "@/app/Styles/salonDetailStyles";
 import { COLORS } from "@/constants/theme";
+import { useRouter } from "expo-router";
 
 // Models & Repositories
 import { Salon } from '../Models/Salon';
@@ -23,6 +23,9 @@ import { Professional } from "@/app/Models/Professional";
 import { Service, SubService } from "@/app/Models/Service";
 import { Review } from "@/app/Models/Review";
 import { SalonRepository } from "@/app/Repository/SalonRepository";
+
+// Managers
+import { useAuth } from "@/app/Managers/AuthManager";
 
 // Components
 import { ModalDetailSkeleton } from "@/app/Components/AnimatedSkeleton";
@@ -39,6 +42,9 @@ interface Props {
 }
 
 export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props) => {
+    const router = useRouter();
+    const { isAuthenticated, setIsGuest } = useAuth();
+
     const [activeTab, setActiveTab] = useState<TabType>('Serviços');
     const [loading, setLoading] = useState(true);
     const [loadingTimes, setLoadingTimes] = useState(false);
@@ -56,10 +62,11 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
     const [profForDetail, setProfForDetail] = useState<Professional | null>(null);
     const [showConfirmPopup, setShowConfirmPopup] = useState(false);
     const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+    const [showAuthAlert, setShowAuthAlert] = useState(false); // Novo Estado para o Alerta
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-    // Estados de Review (RESTAURADOS)
+    // Estados de Review
     const [newRating, setNewRating] = useState(0);
     const [newComment, setNewComment] = useState("");
 
@@ -127,7 +134,6 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         }
     };
 
-    // Lógica de envio de Review (RESTAURADA)
     const handleSendReview = () => {
         if (newRating === 0) return;
         const reviewObj: Review = {
@@ -143,6 +149,22 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         setReviews([reviewObj, ...reviews]);
         setNewRating(0);
         setNewComment("");
+    };
+
+    // LOGICA DE AGENDAMENTO COM TRAVA DE AUTH
+    const handleBookPress = () => {
+        if (!isAuthenticated) {
+            setShowAuthAlert(true);
+        } else {
+            setShowConfirmPopup(true);
+        }
+    };
+
+    const handleGoToLogin = () => {
+        setShowAuthAlert(false);
+        onClose();
+        setIsGuest(false);
+        router.replace('/Pages/Login/LoginScreen' as any);
     };
 
     const handleFinalConfirm = () => {
@@ -169,7 +191,30 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
             <View style={styles.overlay}>
                 <View style={styles.content}>
 
-                    {/* MODAL DE ZOOM DA IMAGEM (RESTAURADO) */}
+                    {/* ALERT PERSONALIZADO DE AUTENTICAÇÃO */}
+                    <Modal visible={showAuthAlert} transparent animationType="fade">
+                        <View style={styles.modalConfirmOverlay}>
+                            <View style={[styles.confirmCard, { alignItems: 'center', paddingVertical: 30 }]}>
+                                <View style={{ width: 70, height: 70, borderRadius: 35, backgroundColor: '#FFF0F5', justifyContent: 'center', alignItems: 'center', marginBottom: 15 }}>
+                                    <Ionicons name="person-add" size={35} color={COLORS.secondary} />
+                                </View>
+                                <Text style={[styles.confirmTitle, { textAlign: 'center' }]}>Quase lá!</Text>
+                                <Text style={{ color: '#666', textAlign: 'center', marginBottom: 25, lineHeight: 20 }}>
+                                    Você precisa estar logado para realizar agendamentos e garantir seu horário.
+                                </Text>
+
+                                <TouchableOpacity style={[styles.confirmFinalBtn, { width: '100%' }]} onPress={handleGoToLogin}>
+                                    <Text style={styles.confirmFinalBtnText}>Fazer Login / Cadastro</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={{ marginTop: 15 }} onPress={() => setShowAuthAlert(false)}>
+                                    <Text style={{ color: '#999', fontWeight: '500' }}>Continuar explorando</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </Modal>
+
+                    {/* MODAL DE ZOOM DA IMAGEM */}
                     <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
                         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
                             <TouchableOpacity style={{ position: 'absolute', top: 50, right: 25, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
@@ -353,8 +398,17 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
 
                                 {activeTab === 'Reviews' && (
                                     <View>
-                                        {/* FORMULÁRIO DE REVIEW (RESTAURADO) */}
-                                        {salon.userHasVisited ? (
+                                        {!isAuthenticated ? (
+                                            <View style={[styles.lockWarning, { padding: 30 }]}>
+                                                <Ionicons name="lock-closed" size={24} color="#999" />
+                                                <Text style={[styles.lockText, { textAlign: 'center', marginTop: 10 }]}>
+                                                    Faça login para avaliar o salão e compartilhar sua experiência.
+                                                </Text>
+                                                <TouchableOpacity style={{ marginTop: 15 }} onPress={handleGoToLogin}>
+                                                    <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Entrar agora</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        ) : salon.userHasVisited ? (
                                             <View style={styles.reviewForm}>
                                                 <Text style={styles.sectionTitle}>Avaliar atendimento</Text>
                                                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
@@ -438,7 +492,11 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
 
                     {activeTab === 'Serviços' && (
                         <View style={styles.footer}>
-                            <TouchableOpacity style={[styles.bookBtn, !canConfirm && { backgroundColor: '#EEE' }]} disabled={!canConfirm} onPress={() => setShowConfirmPopup(true)}>
+                            <TouchableOpacity
+                                style={[styles.bookBtn, !canConfirm && { backgroundColor: '#EEE' }]}
+                                disabled={!canConfirm}
+                                onPress={handleBookPress}
+                            >
                                 <Text style={[styles.bookBtnText, !canConfirm && { color: '#999' }]}>
                                     {canConfirm ? `Confirmar para as ${selectedTime}` : "Selecione todos os passos"}
                                 </Text>

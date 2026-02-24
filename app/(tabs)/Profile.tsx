@@ -9,10 +9,21 @@ import { profileStyles } from "@/app/Styles/profileStyles";
 // Managers
 import { useAuth } from '../Managers/AuthManager';
 import {COLORS} from "@/constants/theme";
+import {AuthGuardPlaceholder} from "@/app/Components/AuthGuardPlaceholder";
 
 export default function ProfileScreen() {
     const insets = useSafeAreaInsets();
-    const { currentUser, logout } = useAuth();
+    const { currentUser, logout ,isAuthenticated} = useAuth();
+    
+    if (!isAuthenticated) {
+        return (
+            <AuthGuardPlaceholder
+                title="Seu Perfil"
+                description="Faça login para gerenciar suas informações e preferências."
+                icon="person-circle-outline"
+            />
+        );
+    }
 
     return (
         <View style={[profileStyles.container, { paddingTop: insets.top }]}>

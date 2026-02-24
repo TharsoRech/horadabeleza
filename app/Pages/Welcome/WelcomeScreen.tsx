@@ -17,13 +17,15 @@ export default function WelcomeScreen() {
 
         <View style={[authStyles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
 
-          <View style={authStyles.imageContainer}>
-            <Image
-                source={require('../../../assets/images/your-beauty.png')}
-                style={authStyles.image}
-                resizeMode="contain"
-            />
-          </View>
+            <View style={authStyles.imageContainer}>
+                <View style={authStyles.illustrationPlaceholder}>
+                    <Image
+                        source={require('../../../assets/images/your-beauty.png')}
+                        style={authStyles.image}
+                        resizeMode="contain"
+                    />
+                </View>
+            </View>
 
           <View style={authStyles.textSection}>
             <Text style={authStyles.title}>Bem Vindo a Hora da Beleza</Text>
@@ -34,7 +36,7 @@ export default function WelcomeScreen() {
             <TouchableOpacity
                 activeOpacity={0.8}
                 style={authStyles.signUpBtn}
-                onPress={() => router.push('/Pages/Register/RegisterScreen' as any)}
+                onPress={() => router.push('/Pages/Login/RegisterScreen' as any)}
             >
               <Text style={authStyles.signUpText}>Cadastrar</Text>
             </TouchableOpacity>

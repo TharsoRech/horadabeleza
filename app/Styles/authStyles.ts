@@ -13,9 +13,10 @@ export const authStyles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     imageContainer: {
-        flex: 0.5,
+        flex: 0.7,
         justifyContent: 'center',
-        marginTop: 40
+        alignItems: 'center', // Centraliza a imagem horizontalmente
+        marginTop: 40,
     },
     illustrationPlaceholder: {
         width: width * 0.85,
