@@ -8,7 +8,9 @@ import {
     TouchableOpacity,
     Linking,
     Platform,
-    ActivityIndicator
+    ActivityIndicator,
+    TextInput,
+    Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -18,7 +20,7 @@ import { COLORS } from "@/constants/theme";
 // Models & Repositories
 import { Salon } from '../Models/Salon';
 import { Professional } from "@/app/Models/Professional";
-import { Service, SubService } from "@/app/Models/Service"; // Importado SubService
+import { Service, SubService } from "@/app/Models/Service";
 import { Review } from "@/app/Models/Review";
 import { SalonRepository } from "@/app/Repository/SalonRepository";
 
@@ -43,7 +45,7 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
 
     // Estados de Seleção de Agendamento
     const [selectedService, setSelectedService] = useState<Service | null>(null);
-    const [selectedSubService, setSelectedSubService] = useState<SubService | null>(null); // NOVO
+    const [selectedSubService, setSelectedSubService] = useState<SubService | null>(null);
     const [selectedProf, setSelectedProf] = useState<Professional | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-    // Estados de Review
+    // Estados de Review (RESTAURADOS)
     const [newRating, setNewRating] = useState(0);
     const [newComment, setNewComment] = useState("");
 
@@ -66,7 +68,6 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
     const [allProfessionals, setAllProfessionals] = useState<Professional[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
 
-    // Lógica de Calendário
     const dateList = useMemo(() => {
         const anchorDate = new Date(selectedDate + "T12:00:00");
         return Array.from({ length: 7 }, (_, i) => {
@@ -81,7 +82,6 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         });
     }, [selectedDate]);
 
-    // Busca de Dados Inicial
     useEffect(() => {
         if (visible && salon) {
             async function fetchData() {
@@ -102,7 +102,6 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         }
     }, [visible, salon]);
 
-    // Busca de Horários Disponíveis
     useEffect(() => {
         if (selectedProf && selectedDate) {
             setLoadingTimes(true);
@@ -114,22 +113,36 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         }
     }, [selectedProf, selectedDate]);
 
-    // Handlers
     const handleContact = () => {
         const whats = salon?.whatsApp;
-        const phone = salon?.phone; // Corrigido aqui
-
+        const phone = salon?.phone;
         if (whats) {
             const cleanNumber = whats.replace(/\D/g, '');
             const finalNumber = cleanNumber.length === 11 ? `55${cleanNumber}` : cleanNumber;
             const msg = encodeURIComponent(`Olá, gostaria de falar sobre um agendamento no ${salon?.name}.`);
             const url = `https://wa.me/${finalNumber}?text=${msg}`;
-            Linking.openURL(url).catch(() => {
-                if (phone) Linking.openURL(`tel:${phone.replace(/\D/g, '')}`);
-            });
+            Linking.openURL(url).catch(() => phone && Linking.openURL(`tel:${phone.replace(/\D/g, '')}`));
         } else if (phone) {
             Linking.openURL(`tel:${phone.replace(/\D/g, '')}`);
         }
+    };
+
+    // Lógica de envio de Review (RESTAURADA)
+    const handleSendReview = () => {
+        if (newRating === 0) return;
+        const reviewObj: Review = {
+            salonId: salon?.id ?? "",
+            id: String(Date.now()),
+            professionalId: "",
+            userName: "Você",
+            rating: newRating,
+            comment: newComment,
+            createdAt: new Date().toISOString(),
+            userId: "current"
+        };
+        setReviews([reviewObj, ...reviews]);
+        setNewRating(0);
+        setNewComment("");
     };
 
     const handleFinalConfirm = () => {
@@ -155,6 +168,16 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         <Modal visible={visible} animationType="slide" transparent>
             <View style={styles.overlay}>
                 <View style={styles.content}>
+
+                    {/* MODAL DE ZOOM DA IMAGEM (RESTAURADO) */}
+                    <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
+                        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+                            <TouchableOpacity style={{ position: 'absolute', top: 50, right: 25, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
+                                <Ionicons name="close-circle" size={45} color="#FFF" />
+                            </TouchableOpacity>
+                            {selectedImage && <Image source={{ uri: selectedImage }} style={{ width: '100%', height: '80%', resizeMode: 'contain' }} />}
+                        </View>
+                    </Modal>
 
                     <ProfessionalDetailModal
                         visible={profDetailVisible}
@@ -218,7 +241,6 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                                                     <Text style={[styles.serviceLabel, { marginLeft: 12 }]}>{s.name}</Text>
                                                 </TouchableOpacity>
 
-                                                {/* LISTA DE SUB-SERVIÇOS */}
                                                 {selectedService?.id === s.id && (
                                                     <View style={styles.subServiceWrapper}>
                                                         {s.subServices?.map(sub => (
@@ -331,17 +353,49 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
 
                                 {activeTab === 'Reviews' && (
                                     <View>
-                                        {/* Lógica de Review simplificada para o exemplo */}
-                                        <Text style={styles.sectionTitle}>Avaliações Recentes</Text>
-                                        {reviews.map(r => (
-                                            <View key={r.id} style={styles.reviewCard}>
-                                                <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                                    <Text style={{ fontWeight: 'bold' }}>{r.userName}</Text>
-                                                    <Text style={{color: '#FFA800'}}>★ {r.rating}</Text>
+                                        {/* FORMULÁRIO DE REVIEW (RESTAURADO) */}
+                                        {salon.userHasVisited ? (
+                                            <View style={styles.reviewForm}>
+                                                <Text style={styles.sectionTitle}>Avaliar atendimento</Text>
+                                                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                                                    {[1, 2, 3, 4, 5].map(s => (
+                                                        <TouchableOpacity key={s} onPress={() => setNewRating(s)}>
+                                                            <Ionicons name={s <= newRating ? "star" : "star-outline"} size={26} color="#FFA800" />
+                                                        </TouchableOpacity>
+                                                    ))}
                                                 </View>
-                                                <Text style={styles.reviewComment}>{r.comment}</Text>
+                                                <TextInput
+                                                    style={styles.reviewInput}
+                                                    placeholder="Como foi sua experiência?"
+                                                    multiline
+                                                    value={newComment}
+                                                    onChangeText={setNewComment}
+                                                />
+                                                {newRating > 0 && (
+                                                    <TouchableOpacity style={styles.sendReviewBtn} onPress={handleSendReview}>
+                                                        <Text style={styles.sendReviewBtnText}>Publicar Avaliação</Text>
+                                                    </TouchableOpacity>
+                                                )}
                                             </View>
-                                        ))}
+                                        ) : (
+                                            <View style={styles.lockWarning}>
+                                                <Ionicons name="lock-closed" size={18} color="#999" />
+                                                <Text style={styles.lockText}>Apenas clientes que realizaram agendamentos podem avaliar.</Text>
+                                            </View>
+                                        )}
+
+                                        <View style={{marginTop: 20}}>
+                                            <Text style={styles.sectionTitle}>Avaliações Recentes</Text>
+                                            {reviews.map(r => (
+                                                <View key={r.id} style={styles.reviewCard}>
+                                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                                        <Text style={{ fontWeight: 'bold' }}>{r.userName}</Text>
+                                                        <Text style={{color: '#FFA800'}}>★ {r.rating}</Text>
+                                                    </View>
+                                                    <Text style={styles.reviewComment}>{r.comment}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
                                     </View>
                                 )}
                             </View>
