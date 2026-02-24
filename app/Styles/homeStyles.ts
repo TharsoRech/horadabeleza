@@ -6,11 +6,17 @@ export const homeStyles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'center', // Garante que o sino fique alinhado ao centro vertical do nome
         paddingHorizontal: 20,
-        paddingVertical: 15,
+        paddingVertical: 16,
     },
-    welcomeText: { fontSize: 22, fontWeight: 'bold', color: COLORS.textMain },
+    welcomeText: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: COLORS.textMain,
+        flexShrink: 1, // Ajuda a reduzir o tamanho se necessário
+        lineHeight: 28, // Melhora a leitura se houver quebra de linha
+    },
     subTitle: { fontSize: 14, color: COLORS.textSub },
     profileBadge: {
         padding: 10,

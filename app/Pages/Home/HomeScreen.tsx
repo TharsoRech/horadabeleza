@@ -187,10 +187,17 @@ export default function HomeScreen() {
 
             {!isSearching && (
                 <View style={homeStyles.header}>
-                    <View>
-                        <Text style={homeStyles.welcomeText}>Olá, {displayName}!</Text>
+                    {/* Adicione flex: 1 aqui para o texto não invadir o espaço do sino */}
+                    <View style={{ flex: 1, marginRight: 10 }}>
+                        <Text
+                            style={homeStyles.welcomeText}
+                            numberOfLines={2} // Limita a 2 linhas se for um nome bizarramente longo
+                        >
+                            Olá, {displayName}!
+                        </Text>
                         <Text style={homeStyles.subTitle}>Encontre seu serviço de hoje</Text>
                     </View>
+
                     <TouchableOpacity style={homeStyles.profileBadge} onPress={() => setNotifVisible(true)}>
                         <Ionicons name="notifications-outline" size={24} color={COLORS.textMain} />
                         {unreadCount > 0 && (
