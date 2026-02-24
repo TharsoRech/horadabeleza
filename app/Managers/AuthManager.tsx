@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 
 interface AuthContextData {
     isAuthenticated: boolean;
+    isGuest: boolean; // Adicionado
+    setIsGuest: (value: boolean) => void; // Adicionado
     currentUser: UserProfile | null;
     login: (profile: UserProfile) => Promise<void>;
     logout: () => Promise<void>;
@@ -15,6 +17,7 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+    const [isGuest, setIsGuest] = useState(false); // Estado para o convidado
     const [loading, setLoading] = useState(true);
     const router = useRouter();
     const profileKey = "user_profile_cache";
@@ -23,14 +26,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         async function loadStorageData() {
             try {
                 const cachedData = await CacheManager.load<{profile: UserProfile, timestamp: number}>(profileKey);
-
                 if (cachedData) {
                     const { profile, timestamp } = cachedData;
                     const umMesEmMilissegundos = 30 * 24 * 60 * 60 * 1000;
-                    const agora = Date.now();
-
-                    if (agora - timestamp < umMesEmMilissegundos) {
-                        // Garantimos que estamos instanciando o modelo corretamente
+                    if (Date.now() - timestamp < umMesEmMilissegundos) {
                         setCurrentUser(new UserProfile(profile));
                     } else {
                         await CacheManager.remove(profileKey);
@@ -40,7 +39,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch (error) {
                 console.error("Erro ao carregar cache:", error);
             } finally {
-                // O loading PRECISA ser false para o RootLayout prosseguir
                 setLoading(false);
             }
         }
@@ -48,30 +46,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (userProfile: UserProfile) => {
-        const dataToCache = {
-            profile: userProfile,
-            timestamp: Date.now()
-        };
-
+        const dataToCache = { profile: userProfile, timestamp: Date.now() };
         await CacheManager.save(profileKey, dataToCache);
         setCurrentUser(userProfile);
-
-        // CORREÇÃO: Caminho absoluto e limpo para as tabs
-        // O replace aqui dispara a mudança que o RootLayout vai ouvir
+        setIsGuest(false); // Se logou, não é mais convidado
         router.replace('/(tabs)');
     };
 
     const logout = async () => {
         await CacheManager.remove(profileKey);
         setCurrentUser(null);
-
-        // CORREÇÃO: Caminho absoluto
+        setIsGuest(false);
         router.replace('/Pages/Welcome/WelcomeScreen' as any);
     };
 
     return (
         <AuthContext.Provider value={{
             isAuthenticated: !!currentUser,
+            isGuest,
+            setIsGuest,
             currentUser,
             login,
             logout,
