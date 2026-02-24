@@ -158,11 +158,26 @@ export const AppointmentDetailModal = ({
                             </View>
 
                             <View style={styles.section}>
-                                <DetailRow label="Serviço" value={appointment.serviceName} icon="cut-outline" />
+                                {/* Ícone trocado para sparkles-outline (Brilhos/Serviço) */}
+                                <DetailRow
+                                    label="Serviço"
+                                    value={appointment.serviceName}
+                                    icon="sparkles-outline"
+                                />
+
                                 <TouchableOpacity onPress={() => onNavigateToProfessional(appointment.professionalId)}>
-                                    <DetailRow label="Profissional" value={`${appointment.professionalName} (Ver Perfil)`} icon="person-outline" />
+                                    <DetailRow
+                                        label="Profissional"
+                                        value={`${appointment.professionalName} (Ver Perfil)`}
+                                        icon="person-outline"
+                                    />
                                 </TouchableOpacity>
-                                <DetailRow label="Data e Horário" value={`${new Date(appointment.date).toLocaleDateString('pt-BR')} às ${appointment.time}`} icon="time-outline" />
+
+                                <DetailRow
+                                    label="Data e Horário"
+                                    value={`${new Date(appointment.date).toLocaleDateString('pt-BR')} às ${appointment.time}`}
+                                    icon="calendar-outline"
+                                />
                             </View>
 
                             <View style={[styles.section, styles.priceSection]}>

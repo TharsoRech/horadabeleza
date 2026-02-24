@@ -181,4 +181,82 @@ export const salonDetailStyles = StyleSheet.create({
         shadowRadius: 20,
         elevation: 10,
     },
+    subServiceCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        backgroundColor: '#F8F9FA',
+        borderRadius: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#EEE'
+    },
+    selectedSubCard: {
+        borderColor: COLORS.primary,
+        backgroundColor: '#FFF',
+        elevation: 2
+    },
+    subServiceName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.textMain
+    },
+    subServiceTime: {
+        fontSize: 12,
+        color: '#999',
+        marginTop: 2
+    },
+    subServiceWrapper: {
+        marginLeft: 15,
+        marginTop: 5,
+        paddingLeft: 15,
+        borderLeftWidth: 2,
+        borderLeftColor: '#F0F0F0',
+    },
+    subServiceDetails: {
+        fontSize: 12,
+        color: '#999',
+        marginTop: 2,
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    calendarTrigger: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F7FF',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 20,
+    },
+    calendarTriggerText: {
+        color: COLORS.primary, // Ou sua cor primária
+        fontWeight: 'bold',
+        fontSize: 12,
+        marginLeft: 5,
+    },
+    successBadge: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: '#25D366',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    infoIconBadge: {
+        position: 'absolute',
+        top: -5,
+        right: -5,
+        backgroundColor: '#FFF',
+        borderRadius: 4,
+        elevation: 3,
+        margin: 3,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+    },
 });
