@@ -6,7 +6,9 @@ import {
     TouchableOpacity,
     KeyboardAvoidingView,
     Platform,
-    ScrollView
+    ScrollView,
+    ActivityIndicator,
+    Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,21 +19,62 @@ import { authStyles } from "@/app/Styles/authStyles";
 
 // Logic & Models
 import { useAuth } from '../../Managers/AuthManager';
-import { UserProfile } from '../../Models/UserProfile';
 
 export default function LoginScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const { login } = useAuth();
+
+    // Agora pegamos as funções reais do Manager
+    const { login, requestPasswordReset } = useAuth();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
+    // Função de Login conectada ao Repository via Manager
     const handleLogin = async () => {
-        // Mock logic preserved
-        const userMock = UserProfile.mock();
-        userMock.email = email;
-        await login(userMock);
+        if (!email || !password) {
+            Alert.alert("Erro", "Por favor, preencha todos os campos.");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            // Chamada ao Manager (que chama o Repository)
+            await login(email, password);
+            // O redirecionamento acontece automaticamente pelo estado global de Auth
+        } catch (error: any) {
+            Alert.alert("Falha no Login", error.message || "E-mail ou senha incorretos.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Função para Recuperação de Senha
+    const handleForgotPassword = () => {
+        if (!email) {
+            Alert.alert("Atenção", "Digite seu e-mail no campo acima para recuperar a senha.");
+            return;
+        }
+
+        Alert.alert(
+            "Recuperar Senha",
+            `Deseja enviar um link de redefinição para ${email}?`,
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Enviar",
+                    onPress: async () => {
+                        const success = await requestPasswordReset(email);
+                        if (success) {
+                            Alert.alert("Sucesso", "Instruções enviadas para o seu e-mail.");
+                        } else {
+                            Alert.alert("Erro", "Não encontramos uma conta com este e-mail.");
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     return (
@@ -60,33 +103,52 @@ export default function LoginScreen() {
                         <TextInput
                             placeholder="E-mail"
                             placeholderTextColor="rgba(255, 255, 255, 0.7)"
-                            style={authStyles.input} // Replaces localStyles.input
+                            style={authStyles.input}
                             value={email}
                             onChangeText={setEmail}
                             keyboardType="email-address"
                             autoCapitalize="none"
-                        />
-                        <TextInput
-                            placeholder="Senha"
-                            placeholderTextColor="rgba(255, 255, 255, 0.7)"
-                            style={authStyles.input} // Replaces localStyles.input
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry
+                            autoCorrect={false}
                         />
 
-                        {/* Login Button */}
+                        <View>
+                            <TextInput
+                                placeholder="Senha"
+                                placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                                style={authStyles.input}
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry
+                            />
+
+                            {/* Botão Esqueci Senha */}
+                            <TouchableOpacity
+                                onPress={handleForgotPassword}
+                                style={{ alignSelf: 'flex-end', marginTop: -15, marginBottom: 15, padding: 5 }}
+                            >
+                                <Text style={{ color: 'white', fontSize: 12, fontWeight: '500' , paddingTop:16}}>
+                                    Esqueci minha senha
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Login Button com Loading */}
                         <TouchableOpacity
-                            style={[authStyles.signUpBtn, { marginTop: 10 }]} // Using the primary button style
+                            style={[authStyles.signUpBtn, { marginTop: 10 }]}
                             onPress={handleLogin}
                             activeOpacity={0.8}
+                            disabled={isLoading}
                         >
-                            <Text style={authStyles.signUpText}>Entrar</Text>
+                            {isLoading ? (
+                                <ActivityIndicator color="#FF4B91" />
+                            ) : (
+                                <Text style={authStyles.signUpText}>Entrar</Text>
+                            )}
                         </TouchableOpacity>
 
                         {/* Navigation Links */}
                         <TouchableOpacity
-                            onPress={() => router.push('/Pages/Register/RegisterScreen' as any)}
+                            onPress={() => router.push('/Pages/Login/RegisterScreen' as any)}
                             style={authStyles.guestBtn}
                         >
                             <Text style={authStyles.guestText}>Não tem uma conta? Cadastre-se</Text>

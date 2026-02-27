@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
 import {
-    Text,
-    View,
-    TextInput,
-    TouchableOpacity,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Image,
-    Alert
+    Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView,
+    Platform, ScrollView, Image, Alert, ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,10 +9,7 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-// New Modular Styles
 import { authStyles } from "@/app/Styles/authStyles";
-
-// Logic & Models
 import { useAuth } from '../../Managers/AuthManager';
 import { UserProfile, UserRole } from '../../Models/UserProfile';
 import { formatDate, formatDoc } from "@/app/Helpers/FormatStrings";
@@ -27,7 +17,7 @@ import { formatDate, formatDoc } from "@/app/Helpers/FormatStrings";
 export default function RegisterScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const { login } = useAuth();
+    const { register } = useAuth(); // Usando o método register corrigido
 
     // States
     const [name, setName] = useState('');
@@ -38,8 +28,9 @@ export default function RegisterScreen() {
     const [role, setRole] = useState<UserRole>(UserRole.CLIENT);
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [base64Image, setBase64Image] = useState<string | undefined>(undefined);
+    const [loading, setLoading] = useState(false);
 
-    // Validações
+    // Validações originais
     const isEmailValid = (ev: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ev);
     const isDocValid = doc.replace(/\D/g, "").length >= 11;
     const isPasswordStrong = password.length >= 6;
@@ -68,23 +59,26 @@ export default function RegisterScreen() {
 
     const handleRegister = async () => {
         if (!isFormValid) {
-            alert("Por favor, preencha todos os campos corretamente.");
+            Alert.alert("Atenção", "Por favor, preencha todos os campos corretamente.");
             return;
         }
 
+        setLoading(true);
         try {
-            const newUser = new UserProfile({
+            // Chamando o register do Manager passando os dados planos
+            await register({
                 name,
                 email: email.toLowerCase().trim(),
-                password,
                 dob: birthDate,
                 role,
                 country: 'Brasil',
                 base64Image,
             });
-            await login(newUser);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Erro ao registrar:", error);
+            Alert.alert("Erro", error.message || "Falha ao criar conta.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -92,7 +86,6 @@ export default function RegisterScreen() {
         <View style={authStyles.container}>
             <LinearGradient colors={['#FF4B91', '#FF76CE']} style={authStyles.background} />
 
-            {/* BOTÃO VOLTAR - REPOSICIONADO PARA O TOPO (ECONOMIZA ESPAÇO NO FIM) */}
             <TouchableOpacity
                 onPress={() => router.back()}
                 style={{ position: 'absolute', top: insets.top + 10, left: 20, zIndex: 10, padding: 5 }}
@@ -107,10 +100,7 @@ export default function RegisterScreen() {
                 <ScrollView
                     contentContainerStyle={[
                         authStyles.content,
-                        {
-                            paddingTop: insets.top + 50, // Menos padding no topo
-                            paddingBottom: insets.bottom + 20
-                        }
+                        { paddingTop: insets.top + 50, paddingBottom: insets.bottom + 20 }
                     ]}
                     showsVerticalScrollIndicator={false}
                 >
@@ -119,12 +109,12 @@ export default function RegisterScreen() {
                         <Text style={authStyles.subtitle}>Preencha seus dados abaixo</Text>
                     </View>
 
-                    {/* ROLE SELECTOR - MAIS COMPACTO (LADO A LADO) */}
-                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15, marginLeft:16, marginRight:16  }}>
+                    {/* ROLE SELECTOR ORIGINAL */}
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15, marginLeft: 16, marginRight: 16 }}>
                         <TouchableOpacity
                             style={[
                                 authStyles.roleCard,
-                                { flex: 1, padding: 10, height: 70 }, // Reduzido altura
+                                { flex: 1, padding: 10, height: 70 },
                                 role === UserRole.CLIENT && authStyles.roleCardActive
                             ]}
                             onPress={() => { setRole(UserRole.CLIENT); setDoc(''); }}
@@ -136,20 +126,20 @@ export default function RegisterScreen() {
                         <TouchableOpacity
                             style={[
                                 authStyles.roleCard,
-                                { flex: 1, padding: 10, height: 70 }, // Reduzido altura
-                                role === UserRole.OWNER && authStyles.roleCardActive
+                                { flex: 1, padding: 10, height: 70 },
+                                role === UserRole.PROFISSIONAL && authStyles.roleCardActive
                             ]}
-                            onPress={() => { setRole(UserRole.OWNER); setDoc(''); }}
+                            onPress={() => { setRole(UserRole.PROFISSIONAL); setDoc(''); }}
                         >
-                            <MaterialCommunityIcons name="content-cut" size={24} color={role === UserRole.OWNER ? 'white' : 'rgba(255,255,255,0.6)'} />
-                            <Text style={[authStyles.roleText, { fontSize: 12 }, role === UserRole.OWNER && authStyles.roleTextActive]}>Profissional</Text>
+                            <MaterialCommunityIcons name="content-cut" size={24} color={role === UserRole.PROFISSIONAL ? 'white' : 'rgba(255,255,255,0.6)'} />
+                            <Text style={[authStyles.roleText, { fontSize: 12 }, role === UserRole.PROFISSIONAL && authStyles.roleTextActive]}>Profissional</Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* IMAGE PICKER - REDUZIDO */}
+                    {/* IMAGE PICKER ORIGINAL */}
                     <TouchableOpacity
                         onPress={pickImage}
-                        style={[authStyles.imagePickerContainer, { marginBottom: 15, marginTop: 0, alignSelf: 'center' }]}
+                        style={[authStyles.imagePickerContainer, { marginBottom: 15, alignSelf: 'center' }]}
                     >
                         {imageUri ? (
                             <Image source={{ uri: imageUri }} style={[authStyles.profileImage, { width: 90, height: 90, borderRadius: 45 }]} />
@@ -161,7 +151,7 @@ export default function RegisterScreen() {
                         )}
                     </TouchableOpacity>
 
-                    {/* FORM - AGRUPAMENTO DINÂMICO PARA ECONOMIZAR ESPAÇO VERTICAL */}
+                    {/* FORM ORIGINAL */}
                     <View style={[authStyles.buttonContainer, { marginTop: 0 }]}>
                         <TextInput
                             placeholder="Nome Completo"
@@ -181,7 +171,6 @@ export default function RegisterScreen() {
                             onChangeText={setEmail}
                         />
 
-                        {/* DOCUMENTO E DATA LADO A LADO PARA GANHAR ESPAÇO */}
                         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
                             <TextInput
                                 placeholder={role === UserRole.CLIENT ? "CPF" : "CPF/CNPJ"}
@@ -211,18 +200,18 @@ export default function RegisterScreen() {
                         />
 
                         <TouchableOpacity
-                            disabled={!isFormValid}
+                            disabled={!isFormValid || loading}
                             style={[
                                 authStyles.signUpBtn,
                                 {
                                     marginTop: 0,
                                     opacity: isFormValid ? 1 : 0.6,
-                                    height: 55 // Altura otimizada para clique
+                                    height: 55
                                 }
                             ]}
                             onPress={handleRegister}
                         >
-                            <Text style={authStyles.signUpText}>Finalizar Cadastro</Text>
+                            {loading ? <ActivityIndicator color="#FF4B91" /> : <Text style={authStyles.signUpText}>Finalizar Cadastro</Text>}
                         </TouchableOpacity>
                     </View>
                 </ScrollView>

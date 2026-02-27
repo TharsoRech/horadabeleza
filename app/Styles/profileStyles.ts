@@ -49,5 +49,26 @@ export const profileStyles = StyleSheet.create({
     logoutText: {
         color: COLORS.secondary,
         fontWeight: '600'
+    },
+    label: { fontSize: 12, fontWeight: 'bold' as 'bold', color: '#999', marginBottom: 5, marginLeft: 5 },
+    input: {
+        backgroundColor: '#F9F9F9', // Força a cor aqui
+        padding: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#EEE',
+        fontSize: 16,
+        color: '#333',
+        // Adicione isso para evitar que o iOS/Android sobrescreva o fundo
+        minHeight: 48
+    },    passwordContainer: {
+        flexDirection: 'row' as 'row',
+        alignItems: 'center' as 'center',
+        backgroundColor: '#F9F9F9',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#EEE'
     }
 });

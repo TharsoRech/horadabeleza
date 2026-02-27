@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 
 export enum UserRole {
-    OWNER = 'owner',
+    PROFISSIONAL = 'profissional',
     CLIENT = 'client',
     STAFF = 'staff'
 }
@@ -34,7 +34,7 @@ export class UserProfile {
             password: "secured_password_123",
             dob: "1992-11-24",
             country: "Brasil",
-            role: UserRole.OWNER
+            role: UserRole.PROFISSIONAL,
         });
     }
 }
