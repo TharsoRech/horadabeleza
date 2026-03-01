@@ -1,7 +1,13 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import {UserRole} from "@/app/Models/UserProfile";
+import { useAuth } from '../Managers/AuthManager';
 
 export default function TabLayout() {
+    const { currentUser, isAuthenticated } = useAuth();
+    
+    const showProfessionalTabs = isAuthenticated && currentUser?.role === UserRole.PROFISSIONAL;
+    
     return (
         <Tabs
             screenOptions={{
@@ -34,6 +40,17 @@ export default function TabLayout() {
                     ),
                 }}
             />
+            
+            <Tabs.Screen
+                name="MyServices"
+                options={{
+                    title: 'Minha Unidades',
+                    tabBarIcon: ({ color }) => <Ionicons name="briefcase-outline" size={26} color={color} />,
+                    // Se não for profissional, o href: null remove o botão da barra de navegação
+                    href: showProfessionalTabs ? '/MyServices' : null,
+                }}
+            />
+            
             <Tabs.Screen
                 name="Profile"
                 options={{

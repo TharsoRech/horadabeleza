@@ -260,15 +260,6 @@ export default function ProfileScreen() {
                                     <Text style={profileStyles.menuText}>Meu Perfil</Text>
                                     <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
                                 </TouchableOpacity>
-
-                                <TouchableOpacity style={profileStyles.menuItem}>
-                                    <MaterialCommunityIcons name="calendar-check" size={24} color={COLORS.textMain} />
-                                    <Text style={profileStyles.menuText}>Meus Serviços</Text>
-                                    <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
-                                </TouchableOpacity>
-
-                                <View style={{ height: 1, backgroundColor: '#F0F0F0', marginVertical: 10, marginHorizontal: 20 }} />
-
                                 <TouchableOpacity style={profileStyles.menuItem} onPress={logout}>
                                     <Ionicons name="log-out-outline" size={24} color={COLORS.secondary} />
                                     <Text style={[profileStyles.menuText, profileStyles.logoutText]}>Sair da Conta</Text>
