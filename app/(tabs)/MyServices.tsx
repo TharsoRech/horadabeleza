@@ -21,9 +21,23 @@ import { AnimatedSkeleton } from "@/app/Components/AnimatedSkeleton";
 import { SalonManagerCard } from "@/app/Components/SalonManagerCard";
 import { ServiceOptionsModal } from "@/app/Components/ServiceOptionsModal";
 import { SalonEditModal } from "@/app/Components/SalonEditModal";
+import {useAuth} from "@/app/Managers/AuthManager";
+import {AuthGuardPlaceholder} from "@/app/Components/AuthGuardPlaceholder";
 
 export default function MyServices() {
     const insets = useSafeAreaInsets();
+    const { isAuthenticated } = useAuth(); // Importe do seu AuthManager
+
+    // Se não estiver logado, nem executa o restante da lógica
+    if (!isAuthenticated) {
+        return (
+            <AuthGuardPlaceholder
+                title="Minha Unidades"
+                description="Você precisa estar logado para ver e marcar seus horários de beleza."
+                icon="calendar-outline"
+            />
+        );
+    }
 
     // --- ESTADOS ---
     const [salons, setSalons] = useState<Salon[]>([]);
@@ -42,7 +56,7 @@ export default function MyServices() {
         try {
             setLoading(true);
             // Utiliza o seu método searchAll filtrando por 'Salão'
-            const data = await salonRepo.searchAll("", "Salão", 1);
+            const data = await salonRepo.getMyUnits();
             setSalons(data as Salon[]);
         } catch (error) {
             console.error("Erro ao carregar salões:", error);

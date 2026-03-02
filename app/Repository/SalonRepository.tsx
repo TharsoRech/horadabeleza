@@ -174,4 +174,50 @@ export class SalonRepository implements ISalonRepository {
             setTimeout(() => resolve(filteredTimes), 500);
         });
     }
+
+    async getMyUnits(): Promise<Salon[]> {
+        // Em um app real, aqui você filtraria por: 
+        // MOCK_SALONS_LIST.filter(s => s.ownerId === currentUserId)
+        const mySalons = [...MOCK_SALONS_LIST];
+
+        // Simula delay de carregamento de banco de dados
+        await new Promise(resolve => setTimeout(resolve, 600));
+
+        // Processa as imagens (Capa + Galeria)
+        return await this._attachSalonMedia(mySalons);
+    }
+
+    private async _attachSalonMedia(salons: Salon[]): Promise<Salon[]> {
+        const salonPhotos = [
+            require('@/assets/images/salon1.jpg'),
+            require('@/assets/images/salon2.jpg')
+        ];
+
+        return Promise.all(salons.map(async (salon, index) => {
+            const cacheKey = `s-full-${salon.id}`;
+
+            // 1. Processa a Imagem Principal (Capa)
+            let mainImage = salon.image;
+            if (!mainImage) {
+                const photoAsset = salonPhotos[index % salonPhotos.length];
+                mainImage = await imageToBase64(photoAsset) || undefined;
+            }
+
+            // 2. Processa a Galeria (Mock de galeria se estiver vazia)
+            // Aqui estamos simulando que cada salão tenha 2 fotos na galeria se não houver nada
+            let processedGallery = salon.gallery || [];
+            if (processedGallery.length === 0) {
+                const g1 = await imageToBase64(require('@/assets/images/salon1.jpg'));
+                const g2 = await imageToBase64(require('@/assets/images/salon2.jpg'));
+                if (g1) processedGallery.push(g1);
+                if (g2) processedGallery.push(g2);
+            }
+
+            return {
+                ...salon,
+                image: mainImage,
+                gallery: processedGallery
+            };
+        }));
+    }
 }

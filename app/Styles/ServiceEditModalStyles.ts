@@ -2,161 +2,204 @@ import { StyleSheet } from 'react-native';
 import { COLORS } from "@/constants/theme";
 
 export const ServiceEditModalStyles = StyleSheet.create({
+    // Estrutura Principal
+    container: {
+        flex: 1,
+        backgroundColor: '#F8F9FA',
+    },
     header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 20,
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        backgroundColor: '#FFF',
         borderBottomWidth: 1,
         borderBottomColor: '#EEE',
-        backgroundColor: 'white'
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
     },
-    headerTitle: { fontSize: 18, fontWeight: 'bold' },
-    cancelText: { color: '#666', fontSize: 16 },
-    saveText: { color: COLORS.primary, fontSize: 16, fontWeight: 'bold' },
-    container: { flex: 1, backgroundColor: '#F9F9F9' },
-    section: { backgroundColor: 'white', padding: 20, marginBottom: 10 },
-    sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 15, color: '#333' },
-    label: { fontSize: 14, color: '#666', marginBottom: 5 },
-    subLabel: { fontSize: 12, color: '#999' },
-    input: {
-        backgroundColor: '#F5F5F5',
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: '#E0E0E0'
-    },
-    rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    rowItems: { flexDirection: 'row', marginTop: 10 },
-    toggleBtn: { padding: 10, borderRadius: 20 },
-    toggleOn: { backgroundColor: '#2E7D32' },
-    toggleOff: { backgroundColor: '#666' },
-    subServiceCard: {
-        borderWidth: 1,
-        borderColor: '#EEE',
-        borderRadius: 12,
-        padding: 15,
-        marginBottom: 10,
-        backgroundColor: '#FFF'
-    },
-    subServiceTitleInput: { fontSize: 16, fontWeight: '600', color: COLORS.textMain, flex: 1 },
-    miniLabel: { fontSize: 11, color: '#999', marginBottom: 2 },
-    miniInput: { backgroundColor: '#F5F5F5', borderRadius: 4, padding: 8, fontSize: 14 },
-    addBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 15,
-        borderWidth: 1,
-        borderColor: COLORS.primary,
-        borderStyle: 'dashed',
-        borderRadius: 8,
-        marginTop: 10
-    },
-    addBtnText: { color: COLORS.primary, fontWeight: 'bold', marginLeft: 8 },
-    manageButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: '#F8F9FA',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#EDEFEF',
-    },
-    manageButtonTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#333',
-    },
-    metricsBox: {
-        flexDirection: 'row',
-        backgroundColor: '#F5F5F5',
-        borderRadius: 12,
-        padding: 15,
-        marginTop: 10
-    },
-    metricItem: {
-        flex: 1,
-        alignItems: 'center'
-    },
-    metricValue: {
+    headerTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#333'
+        color: '#333',
     },
-    metricLabel: {
-        fontSize: 12,
-        color: '#888'
+    cancelText: {
+        fontSize: 16,
+        color: '#666',
     },
-    coverContainer: {
-        width: '100%',
-        height: 150,
-        backgroundColor: '#EEE',
+    saveText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: COLORS.primary,
+    },
+
+    // Formulário de Cadastro (Topo)
+    addForm: {
+        backgroundColor: '#FFF',
+        padding: 20,
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        marginBottom: 10,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        marginLeft:8,
+        marginRight: 8
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 15,
+        marginLeft:16
+    },
+    label: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#666',
+        marginBottom: 6,
+        marginLeft: 4,
+    },
+    input: {
+        backgroundColor: '#F5F5F5',
         borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        overflow: 'hidden',
-        marginTop: 5
+        padding: 14,
+        fontSize: 15,
+        color: '#333',
+        borderWidth: 1,
+        borderColor: '#EEE',
+        marginBottom: 15,
     },
-    fullImage: {
-        width: '100%',
-        height: '100%'
+    row: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 5,
     },
-    thumb: {
-        width: 70,
-        height: 70,
-        borderRadius: 8,
-        marginRight: 10,
-        marginTop: 10
-    },
-    addThumb: {
-        width: 70,
-        height: 70,
-        borderRadius: 8,
-        backgroundColor: '#EEE',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 10
-    },
-    editBadge: {
-        position: 'absolute',
-        bottom: 10,
-        right: 10,
+    addButton: {
         backgroundColor: COLORS.primary,
-        padding: 6,
-        borderRadius: 20,
-        borderWidth: 2,
-        borderColor: 'white'
-    },
-    removeBtn: {
-        position: 'absolute',
-        top: 5,
-        right: 5,
-        backgroundColor: 'rgba(255,0,0,0.8)',
         borderRadius: 12,
-        padding: 2
+        padding: 16,
+        alignItems: 'center',
+        marginTop: 10,
+        flexDirection: 'row',
+        justifyContent: 'center',
     },
-    publishCard: {
+    addButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 14,
+        marginLeft: 8,
+    },
+
+    // Lista de Itens Registrados
+    listHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginTop: 15,
+        marginBottom: 10,
+    },
+    countBadge: {
+        backgroundColor: '#EEE',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    countText: {
+        fontSize: 12,
+        color: '#666',
+        fontWeight: 'bold',
+    },
+    serviceCard: {
+        backgroundColor: 'white',
+        marginHorizontal: 20,
+        marginBottom: 12,
+        borderRadius: 16,
+        padding: 16,
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 15,
-        borderRadius: 12,
-        borderWidth: 1
+        borderWidth: 1,
+        borderColor: '#EEE',
     },
-    switchTrack: {
-        width: 44,
-        height: 24,
-        borderRadius: 12,
-        padding: 2,
-        justifyContent: 'center'
+    iconCircle: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#F0F4FF', // Um tom azulado bem leve
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 15,
     },
-    switchThumb: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: 'white'
+    info: {
+        flex: 1,
+    },
+    name: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    desc: {
+        fontSize: 12,
+        color: '#888',
+        marginTop: 3,
+        lineHeight: 16,
+    },
+    priceTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 6,
+    },
+    price: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: COLORS.primary,
+    },
+    dot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#CCC',
+        marginHorizontal: 8,
+    },
+    duration: {
+        fontSize: 13,
+        color: '#666',
+    },
+    removeBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#FFF0F0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 10,
+    },
+
+    // Empty State
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 40,
+        marginTop: 20,
+    },
+    emptyText: {
+        color: '#AAA',
+        fontSize: 14,
+        textAlign: 'center',
+        marginTop: 10,
+    },
+    removeIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#FFF0F0', // Fundo avermelhado suave
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 10,
     }
 });

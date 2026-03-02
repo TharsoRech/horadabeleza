@@ -32,7 +32,7 @@ export const SalonManagerCard = ({ salon, onPress }: Props) => {
                     </View>
                 )}
                 {/* Badge de Status */}
-                <View style={[styles.statusBadge, { backgroundColor: salon.userHasVisited ? '#4CAF50' : '#FF9800' }]}>
+                <View style={[styles.statusBadge, { backgroundColor: salon.published ? '#4CAF50' : '#FF9800' }]}>
                     <Text style={styles.statusText}>
                         {salon.published ? 'Publicado' : 'Rascunho'}
                     </Text>
