@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Modal, View, Text, TextInput, TouchableOpacity,
-    ScrollView, KeyboardAvoidingView, Platform, Alert, Image, ActivityIndicator
+    ScrollView, KeyboardAvoidingView, Platform, Alert, Image, ActivityIndicator, Switch
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -46,16 +46,31 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
     const [isLoadingData, setIsLoadingData] = useState(false);
 
     useEffect(() => {
-        if (salon && visible) {
-            setName(salon.name || '');
-            setAddress(salon.address || '');
-            setDescription(salon.description || '');
-            setPublished(salon.published || false);
-            setPhone(formatPhone(salon.phone || ''));
-            setWhatsApp(formatPhone(salon.whatsApp || ''));
-            setImageUri(salon.image || null);
-            setGallery(salon.gallery || []);
-            loadData(salon);
+        if (visible) {
+            if (salon) {
+                // Edição: Carrega dados existentes
+                setName(salon.name || '');
+                setAddress(salon.address || '');
+                setDescription(salon.description || '');
+                setPublished(salon.published || false);
+                setPhone(formatPhone(salon.phone || ''));
+                setWhatsApp(formatPhone(salon.whatsApp || ''));
+                setImageUri(salon.image || null);
+                setGallery(salon.gallery || []);
+                loadData(salon);
+            } else {
+                // Cadastro Novo: Reseta tudo para o padrão
+                setName('');
+                setAddress('');
+                setDescription('');
+                setPublished(false);
+                setPhone('');
+                setWhatsApp('');
+                setImageUri(null);
+                setGallery([]);
+                setServices([]);
+                setProfessionals([]);
+            }
         }
     }, [salon, visible]);
 
@@ -106,12 +121,33 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
         if (!result.canceled) setImageUri(result.assets[0].uri);
     };
 
-    // --- SALVAMENTO ---
+    const pickGalleryImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsMultipleSelection: true,
+            quality: 0.5
+        });
+        if (!result.canceled) {
+            const uris = result.assets.map(asset => asset.uri);
+            setGallery([...gallery, ...uris]);
+        }
+    };
+
+    const removeGalleryImage = (index: number) => {
+        const newGallery = [...gallery];
+        newGallery.splice(index, 1);
+        setGallery(newGallery);
+    };
+
+    // --- SALVAMENTO COM VALIDAÇÕES RESTAURADAS ---
     const handleSave = () => {
-        if (!name.trim()) return Alert.alert("Erro", "O nome é obrigatório.");
+        // Validações de campos obrigatórios
+        if (!imageUri) return Alert.alert("Mídia Faltando", "A foto de capa é obrigatória para identificar sua unidade.");
+        if (!name.trim()) return Alert.alert("Campo Obrigatório", "Por favor, insira o nome da unidade.");
+        if (phone.length < 14) return Alert.alert("Telefone Inválido", "Insira um número de telefone válido com DDD.");
 
         const updated: Salon = {
-            ...salon!,
+            id: Math.random().toString(36).substr(2, 9),
             name: name.trim(),
             address: address.trim(),
             description: description.trim(),
@@ -121,7 +157,10 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
             image: imageUri as any,
             gallery,
             serviceIds: services.map(s => s.id),
-            professionalIds: professionals.map(p => p.id)
+            professionalIds: professionals.map(p => p.id),
+            rating:"0",
+            reviews:0,
+            userHasVisited:false
         };
 
         onSave(updated);
@@ -141,9 +180,25 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
 
                 <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 60 }}>
 
-                    {/* SEÇÃO MÍDIA */}
+                    {/* STATUS DE PUBLICAÇÃO (RESTAURADO) */}
+                    <View style={[styles.section, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                        <View>
+                            <Text style={styles.sectionTitle}>Status da Unidade</Text>
+                            <Text style={{ color: published ? '#4CAF50' : '#999', fontSize: 12 }}>
+                                {published ? "Visível para clientes" : "Oculto no catálogo"}
+                            </Text>
+                        </View>
+                        <Switch
+                            value={published}
+                            onValueChange={setPublished}
+                            trackColor={{ false: "#767577", true: COLORS.primary + '80' }}
+                            thumbColor={published ? COLORS.primary : "#f4f3f4"}
+                        />
+                    </View>
+
+                    {/* SEÇÃO MÍDIA - CAPA */}
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Mídia <Text style={{color: 'red'}}>*</Text></Text>
+                        <Text style={styles.sectionTitle}>Foto de Capa <Text style={{color: 'red'}}>*</Text></Text>
                         <TouchableOpacity
                             style={[styles.coverContainer, !imageUri && {borderColor: COLORS.primary, borderWidth: 1, borderStyle: 'dashed'}]}
                             onPress={pickCoverImage}
@@ -151,25 +206,43 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
                             {imageUri ? <Image source={{ uri: imageUri }} style={styles.fullImage} /> : (
                                 <View style={{ alignItems: 'center' }}>
                                     <Ionicons name="camera" size={40} color={COLORS.primary} />
-                                    <Text style={{ color: COLORS.primary, fontSize: 12 }}>Adicionar Capa Obrigatória</Text>
+                                    <Text style={{ color: COLORS.primary, fontSize: 12 }}>Adicionar Capa</Text>
                                 </View>
                             )}
                         </TouchableOpacity>
+                    </View>
+
+                    {/* SEÇÃO GALERIA */}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Galeria de Fotos</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+                            <TouchableOpacity style={styles.addGalleryButton} onPress={pickGalleryImage}>
+                                <Ionicons name="add" size={30} color={COLORS.primary} />
+                            </TouchableOpacity>
+                            {gallery.map((uri, index) => (
+                                <View key={index} style={styles.galleryImageContainer}>
+                                    <Image source={{ uri }} style={styles.galleryImage} />
+                                    <TouchableOpacity style={styles.removeGalleryImage} onPress={() => removeGalleryImage(index)}>
+                                        <Ionicons name="close-circle" size={20} color="#FF5252" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </ScrollView>
                     </View>
 
                     {/* DADOS GERAIS */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Dados Gerais</Text>
 
-                        <Text style={styles.label}>Nome</Text>
-                        <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Ex: Studio VIP" />
+                        <Text style={styles.label}>Nome da Unidade <Text style={{color: 'red'}}>*</Text></Text>
+                        <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Ex: Studio VIP Centro" />
 
-                        <Text style={styles.label}>Endereço</Text>
-                        <TextInput style={styles.input} value={address} onChangeText={setAddress} placeholder="Rua, Número, Bairro" />
+                        <Text style={styles.label}>Endereço Completo</Text>
+                        <TextInput style={styles.input} value={address} onChangeText={setAddress} placeholder="Rua, Número, Bairro, Cidade" />
 
                         <View style={{ flexDirection: 'row', gap: 10 }}>
                             <View style={{flex: 1}}>
-                                <Text style={styles.label}>Telefone</Text>
+                                <Text style={styles.label}>Telefone <Text style={{color: 'red'}}>*</Text></Text>
                                 <TextInput
                                     style={styles.input}
                                     value={phone}
@@ -190,21 +263,20 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
                             </View>
                         </View>
 
-                        <Text style={styles.label}>Descrição / Bio</Text>
+                        <Text style={styles.label}>Descrição do Estabelecimento</Text>
                         <TextInput
-                            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                            style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
                             value={description}
                             onChangeText={setDescription}
                             multiline
-                            placeholder="Conte sobre sua experiência..."
+                            placeholder="Descreva os diferenciais da sua unidade..."
                         />
                     </View>
 
                     {/* CONFIGURAÇÕES DE OPERAÇÃO */}
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Operação</Text>
+                        <Text style={styles.sectionTitle}>Operação e Equipe</Text>
 
-                        {/* BOTÃO SERVIÇOS */}
                         <TouchableOpacity
                             style={[styles.manageButton, services.length === 0 && {borderColor: '#FFCDD2', borderWidth: 1}]}
                             onPress={() => setServiceModalVisible(true)}
@@ -219,7 +291,6 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
                             </View>
                         </TouchableOpacity>
 
-                        {/* BOTÃO PROFISSIONAIS (NOVO) */}
                         <TouchableOpacity
                             style={[styles.manageButton, { marginTop: 12 }]}
                             onPress={() => setProfModalVisible(true)}
@@ -238,7 +309,6 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* MODAIS SECUNDÁRIOS */}
             <ServiceEditModal
                 visible={serviceModalVisible}
                 services={services}
@@ -249,6 +319,7 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
             <ProfessionalEditModal
                 visible={profModalVisible}
                 professionals={professionals}
+                allServices={services}
                 onClose={() => setProfModalVisible(false)}
                 onSave={setProfessionals}
             />
