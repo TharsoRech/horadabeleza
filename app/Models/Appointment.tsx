@@ -20,6 +20,8 @@ export interface Appointment {
     status: 'Confirmado' | 'Pendente' | 'Cancelado' | 'Concluído';
     notes?: string;
     isReviewed?: boolean;
+    clientName?:string;
+    clientPhone?:string;
 }
 
 export const MOCK_Appointment_LIST: Appointment[] = [

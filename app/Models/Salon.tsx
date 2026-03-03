@@ -13,6 +13,7 @@ export interface Salon {
     userHasVisited: boolean;
     gallery?: string[];
     published: boolean;
+    isAdmin:boolean;
 }
 
 export const MOCK_SALONS_LIST: Salon[] = [
@@ -23,12 +24,13 @@ export const MOCK_SALONS_LIST: Salon[] = [
         rating: "4.9",
         reviews: 120,
         serviceIds: ['1', '2', '3', '5'],
-        professionalIds: ['1', '4'],
+        professionalIds: ['1', '4',"123"],
         phone: "5511888888888",
         whatsApp: "5511999999999",
         description: "O Studio Glamour é especialista em transformar visual com elegância. Localizado no coração da Paulista, oferecemos serviços premium de coloração, manicure e estética facial com os melhores produtos do mercado.",
         userHasVisited: true, 
-        published:true
+        published:true,
+        isAdmin:true
     },
     {
         id: '2',
@@ -37,12 +39,13 @@ export const MOCK_SALONS_LIST: Salon[] = [
         rating: "4.7",
         reviews: 85,
         serviceIds: ['2', '4'],
-        professionalIds: ['1', '4'],
+        professionalIds: ['1', '4',"123"],
         phone: "5511888888888",
         whatsApp: "5511888888888",
         description: "Ambiente descontraído e moderno na Rua Augusta. Focamos em cortes modernos e design de sobrancelhas. Venha tomar um café conosco enquanto cuidamos da sua beleza.",
         userHasVisited: false,
-        published:false
+        published:false,
+        isAdmin:false
     },
     {
         id: '3',
@@ -55,7 +58,8 @@ export const MOCK_SALONS_LIST: Salon[] = [
         phone: "5511888888888",
         whatsApp: "", 
         description: "Referência em nail art e cuidados com as mãos. Nossa equipe é treinada nas últimas tendências de alongamento em gel e blindagem de unhas.",
-        userHasVisited: false,  published:false
+        userHasVisited: false,  published:false,
+        isAdmin:false
     },
     {
         id: '4',
@@ -68,6 +72,7 @@ export const MOCK_SALONS_LIST: Salon[] = [
         phone: "5511888888888",
         whatsApp: "5511777777777",
         description: "Especialistas em barbearia clássica e cortes masculinos. Um espaço feito para o homem moderno que não abre mão da tradição.",
-        userHasVisited: true,  published:false
+        userHasVisited: true,  published:false,
+        isAdmin:false
     }
 ];

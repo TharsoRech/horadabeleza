@@ -3,7 +3,6 @@ import * as Crypto from 'expo-crypto';
 export enum UserRole {
     PROFISSIONAL = 'profissional',
     CLIENT = 'client',
-    STAFF = 'staff'
 }
 
 export class UserProfile {

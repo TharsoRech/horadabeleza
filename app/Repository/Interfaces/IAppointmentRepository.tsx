@@ -5,4 +5,10 @@ export interface IAppointmentRepository {
     updateAppointmentStatus(id: string, newStatus: Appointment['status']): Promise<boolean>;
     checkIfAppointmentIsReviewed(id: string): Promise<boolean>;
     getAppointmentsByStatus(status: Appointment['status']): Promise<Appointment[]>;
+    getAppointmentsByUnitAndDate(
+        unitId: string,
+        date: Date,
+        professionalId?: string
+    ): Promise<Appointment[]>
+     getAppointmentsForAdmin(salonId: string, date: Date, showCancelled: boolean): Promise<Appointment[]>
 }

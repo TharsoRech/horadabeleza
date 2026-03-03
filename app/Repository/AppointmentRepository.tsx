@@ -1,6 +1,4 @@
 import { Appointment, MOCK_Appointment_LIST } from "../Models/Appointment";
-import { MOCK_PROFESSIONALS_LIST, Professional } from "../Models/Professional";
-import { MOCK_SALONS_LIST, Salon } from "../Models/Salon";
 import { IAppointmentRepository } from "./Interfaces/IAppointmentRepository";
 import { imageToBase64 } from "@/app/Helpers/getBase64FromAsset";
 
@@ -82,6 +80,53 @@ export class AppointmentRepository implements IAppointmentRepository {
             // Em um cenário real, aqui você alteraria o objeto no banco/mock
             console.log(`Status do agendamento ${id} alterado para ${newStatus}`);
             setTimeout(() => resolve(true), 800);
+        });
+    }
+
+// No seu AppointmentRepository.ts
+
+    async getAppointmentsByUnitAndDate(
+        unitId: string,
+        date: Date,
+        professionalId?: string 
+    ): Promise<Appointment[]> {
+        return new Promise((resolve) => {
+            const targetDate = date.toISOString().split('T')[0];
+
+            const filtered = MOCK_Appointment_LIST.filter(app => {
+                const appDate = new Date(app.date).toISOString().split('T')[0];
+                const matchUnit = app.salonId === unitId;
+                const matchDate = appDate === targetDate;
+
+                // Se for admin (professionalId undefined), traz tudo da unidade
+                // Se não for admin, traz apenas se o professionalId bater
+                const matchProf = professionalId ? app.professionalId === professionalId : true;
+
+                return matchUnit && matchDate && matchProf;
+            });
+
+            setTimeout(() => resolve(filtered), 400);
+        });
+    }
+
+    async getAppointmentsForAdmin(salonId: string, date: Date, showCancelled: boolean): Promise<Appointment[]> {
+        return new Promise((resolve) => {
+            const targetDate = date.toISOString().split('T')[0];
+
+            const filtered = MOCK_Appointment_LIST.filter(app => {
+                const appDate = new Date(app.date).toISOString().split('T')[0];
+                const isFromSalon = app.salonId === salonId;
+                const isSameDate = appDate === targetDate;
+
+                // Admin vê Pendentes de qualquer dia (opcional) ou foca no dia:
+                // Aqui focaremos no dia selecionado, mas separando por status na UI
+                if (showCancelled) {
+                    return isFromSalon && isSameDate; // Traz tudo incluindo cancelados
+                }
+                return isFromSalon && isSameDate && app.status !== 'Cancelado';
+            });
+
+            setTimeout(() => resolve(filtered), 400);
         });
     }
 }

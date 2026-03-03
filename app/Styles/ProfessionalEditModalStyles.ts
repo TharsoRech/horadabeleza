@@ -51,5 +51,31 @@ export const ProfessionalEditModalStyles = StyleSheet.create({
     btnCancel: { padding: 12, flex: 1, alignItems: 'center' },
     btnSave: { backgroundColor: COLORS.primary, padding: 12, flex: 2, borderRadius: 10, alignItems: 'center', marginLeft: 10 },
     txtCancel: { color: '#999', fontWeight: 'bold' },
-    txtSave: { color: '#FFF', fontWeight: 'bold' }
+    txtSave: { color: '#FFF', fontWeight: 'bold' },
+    sectionLabel: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: COLORS.textMain, // Ou #333
+        marginBottom: 12,
+        marginTop: 8,
+        paddingHorizontal: 4,
+        textTransform: 'uppercase', // Opcional: deixa um visual mais "administrativo"
+        letterSpacing: 0.5,
+    },
+
+    listSection: {
+        marginTop: 25,
+        paddingTop: 20,
+        borderTopWidth: 1,
+        borderTopColor: '#EEE', // Linha sutil para separar o formulário da lista
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingBottom: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
 });

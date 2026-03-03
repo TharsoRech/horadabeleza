@@ -220,4 +220,15 @@ export class SalonRepository implements ISalonRepository {
             };
         }));
     }
+
+    async getSalonsByProfessional(professionalId: string): Promise<Salon[]> {
+        // Aqui no futuro você faria o fetch da sua API
+        // Ex: const response = await api.get(`/professionals/${professionalId}/salons`);
+        return new Promise((resolve) => {
+            const mySalons = MOCK_SALONS_LIST.filter(s =>
+                s.professionalIds.includes(professionalId)
+            );
+            setTimeout(() => resolve(mySalons), 500); // Simula delay de rede
+        });
+    }
 }

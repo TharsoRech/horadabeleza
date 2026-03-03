@@ -160,7 +160,8 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
             professionalIds: professionals.map(p => p.id),
             rating:"0",
             reviews:0,
-            userHasVisited:false
+            userHasVisited:false,
+            isAdmin:false
         };
 
         onSave(updated);
