@@ -11,8 +11,6 @@ export interface Service {
     name: string;
     icon: string;
     description: string;
-    price?: number;
-    duration?: string;
     subServices: SubService[];
 }
 export const MOCK_SERVICES: Service[] = [

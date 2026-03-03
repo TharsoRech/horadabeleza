@@ -8,9 +8,11 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { Salon } from "@/app/Models/Salon";
 import { Service } from "@/app/Models/Service";
+import { Professional } from "@/app/Models/Professional";
 import { COLORS } from "@/constants/theme";
 import { SalonEditModalStyles as styles } from "../Styles/SalonEditModalStyles";
 import { ServiceEditModal } from "./ServiceEditModal";
+import { ProfessionalEditModal } from "./ProfessionalEditModal";
 import { SalonRepository } from "@/app/Repository/SalonRepository";
 
 interface Props {
@@ -18,13 +20,12 @@ interface Props {
     salon: Salon | null;
     onClose: () => void;
     onSave: (updatedSalon: Salon) => void;
-    onManageProfessionals: (salon: Salon) => void;
 }
 
-export const SalonEditModal = ({ visible, salon, onClose, onSave, onManageProfessionals }: Props) => {
+export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
     const salonRepo = new SalonRepository();
 
-    // Estados
+    // Estados dos campos
     const [name, setName] = useState('');
     const [address, setAddress] = useState('');
     const [description, setDescription] = useState('');
@@ -33,9 +34,16 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave, onManageProfes
     const [whatsApp, setWhatsApp] = useState('');
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [gallery, setGallery] = useState<string[]>([]);
+
+    // Estados de Listas
     const [services, setServices] = useState<Service[]>([]);
+    const [professionals, setProfessionals] = useState<Professional[]>([]);
+
+    // Visibilidade de Modais
     const [serviceModalVisible, setServiceModalVisible] = useState(false);
-    const [isLoadingServices, setIsLoadingServices] = useState(false);
+    const [profModalVisible, setProfModalVisible] = useState(false);
+
+    const [isLoadingData, setIsLoadingData] = useState(false);
 
     useEffect(() => {
         if (salon && visible) {
@@ -47,17 +55,15 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave, onManageProfes
             setWhatsApp(formatPhone(salon.whatsApp || ''));
             setImageUri(salon.image || null);
             setGallery(salon.gallery || []);
-            loadServices(salon.serviceIds);
+            loadData(salon);
         }
     }, [salon, visible]);
 
-    // --- FORMATADORES (MÁSCARAS) ---
+    // --- FORMATADORES ---
     const formatPhone = (value: string) => {
         const cleaned = value.replace(/\D/g, '');
         const match = cleaned.match(/^(\d{2})(\d{5})(\d{4})$/);
         if (match) return `(${match[1]}) ${match[2]}-${match[3]}`;
-        const matchOld = cleaned.match(/^(\d{2})(\d{4})(\d{4})$/);
-        if (matchOld) return `(${matchOld[1]}) ${matchOld[2]}-${matchOld[3]}`;
         return cleaned;
     };
 
@@ -72,31 +78,37 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave, onManageProfes
         type === 'phone' ? setPhone(formatted) : setWhatsApp(formatted);
     };
 
-    // --- CARGA DE DADOS ---
-    const loadServices = async (ids: string[]) => {
-        if (!ids || ids.length === 0) return setServices([]);
+    // --- CARGA DE DATA ---
+    const loadData = async (targetSalon: Salon) => {
         try {
-            setIsLoadingServices(true);
-            const data = await salonRepo.getSalonServices(ids);
-            setServices(data);
-        } catch (e) { console.error(e); } finally { setIsLoadingServices(false); }
+            setIsLoadingData(true);
+            const [srvs, profs] = await Promise.all([
+                salonRepo.getSalonServices(targetSalon.serviceIds || []),
+                salonRepo.getSalonProfessionals(targetSalon.professionalIds || [])
+            ]);
+            setServices(srvs);
+            setProfessionals(profs);
+        } catch (e) {
+            console.error("Erro ao carregar dados:", e);
+        } finally {
+            setIsLoadingData(false);
+        }
     };
 
-    // --- VALIDAÇÃO E SALVAMENTO ---
-    const validateFields = () => {
-        if (!name.trim()) return "O nome do estabelecimento é obrigatório.";
-        if (!address.trim()) return "O endereço é obrigatório.";
-        if (phone.length < 14) return "Informe um telefone válido.";
-        if (whatsApp.length < 14) return "Informe um WhatsApp válido.";
-        if (!description.trim()) return "A descrição é obrigatória.";
-        if (!imageUri) return "A foto de capa é obrigatória.";
-        if (services.length === 0) return "Adicione pelo menos um serviço.";
-        return null;
+    // --- MÍDIA ---
+    const pickCoverImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [16, 9],
+            quality: 0.5
+        });
+        if (!result.canceled) setImageUri(result.assets[0].uri);
     };
 
+    // --- SALVAMENTO ---
     const handleSave = () => {
-        const error = validateFields();
-        if (error) return Alert.alert("Campos Pendentes", error);
+        if (!name.trim()) return Alert.alert("Erro", "O nome é obrigatório.");
 
         const updated: Salon = {
             ...salon!,
@@ -109,21 +121,18 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave, onManageProfes
             image: imageUri as any,
             gallery,
             serviceIds: services.map(s => s.id),
+            professionalIds: professionals.map(p => p.id)
         };
 
         onSave(updated);
         onClose();
     };
 
-    // --- MÍDIA ---
-    const pickCoverImage = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [16, 9], quality: 0.5 });
-        if (!result.canceled) setImageUri(result.assets[0].uri);
-    };
-
     return (
         <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+
+                {/* HEADER */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={onClose}><Text style={styles.cancelText}>Cancelar</Text></TouchableOpacity>
                     <Text style={styles.headerTitle}>{salon ? 'Gerenciar Unidade' : 'Nova Unidade'}</Text>
@@ -135,7 +144,10 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave, onManageProfes
                     {/* SEÇÃO MÍDIA */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Mídia <Text style={{color: 'red'}}>*</Text></Text>
-                        <TouchableOpacity style={[styles.coverContainer, !imageUri && {borderColor: COLORS.primary, borderWidth: 1, borderStyle: 'dashed'}]} onPress={pickCoverImage}>
+                        <TouchableOpacity
+                            style={[styles.coverContainer, !imageUri && {borderColor: COLORS.primary, borderWidth: 1, borderStyle: 'dashed'}]}
+                            onPress={pickCoverImage}
+                        >
                             {imageUri ? <Image source={{ uri: imageUri }} style={styles.fullImage} /> : (
                                 <View style={{ alignItems: 'center' }}>
                                     <Ionicons name="camera" size={40} color={COLORS.primary} />
@@ -188,9 +200,11 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave, onManageProfes
                         />
                     </View>
 
-                    {/* CONFIGURAÇÕES */}
+                    {/* CONFIGURAÇÕES DE OPERAÇÃO */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Operação</Text>
+
+                        {/* BOTÃO SERVIÇOS */}
                         <TouchableOpacity
                             style={[styles.manageButton, services.length === 0 && {borderColor: '#FFCDD2', borderWidth: 1}]}
                             onPress={() => setServiceModalVisible(true)}
@@ -200,7 +214,22 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave, onManageProfes
                                 <Text style={[styles.manageButtonTitle, { marginLeft: 10 }]}>Serviços Ofertados</Text>
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                {isLoadingServices ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Text style={{ color: services.length === 0 ? '#D32F2F' : '#AAA', fontWeight: 'bold' }}>{services.length || 'ADICIONAR'}</Text>}
+                                {isLoadingData ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Text style={{ color: services.length === 0 ? '#D32F2F' : '#AAA', fontWeight: 'bold' }}>{services.length || 'ADICIONAR'}</Text>}
+                                <Ionicons name="chevron-forward" size={18} color="#CCC" />
+                            </View>
+                        </TouchableOpacity>
+
+                        {/* BOTÃO PROFISSIONAIS (NOVO) */}
+                        <TouchableOpacity
+                            style={[styles.manageButton, { marginTop: 12 }]}
+                            onPress={() => setProfModalVisible(true)}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name="people-outline" size={22} color={COLORS.primary} />
+                                <Text style={[styles.manageButtonTitle, { marginLeft: 10 }]}>Equipe de Profissionais</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                {isLoadingData ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Text style={{ color: '#AAA', fontWeight: 'bold' }}>{professionals.length || '0'}</Text>}
                                 <Ionicons name="chevron-forward" size={18} color="#CCC" />
                             </View>
                         </TouchableOpacity>
@@ -209,11 +238,19 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave, onManageProfes
                 </ScrollView>
             </KeyboardAvoidingView>
 
+            {/* MODAIS SECUNDÁRIOS */}
             <ServiceEditModal
                 visible={serviceModalVisible}
                 services={services}
                 onClose={() => setServiceModalVisible(false)}
                 onSave={setServices}
+            />
+
+            <ProfessionalEditModal
+                visible={profModalVisible}
+                professionals={professionals}
+                onClose={() => setProfModalVisible(false)}
+                onSave={setProfessionals}
             />
         </Modal>
     );
