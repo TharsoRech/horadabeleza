@@ -9,7 +9,7 @@ interface AppointmentCardProps {
     item: Appointment;
     onPress: (item: Appointment) => void;
     isProfessionalView?: boolean;
-    canEdit?: boolean; // Propriedade adicionada para resolver o erro de TS
+    canEdit?: boolean;
 }
 
 export const AppointmentCard = ({
@@ -29,11 +29,9 @@ export const AppointmentCard = ({
 
     return (
         <TouchableOpacity
-            // Se for pendente, adicionamos uma borda lateral de destaque (opcional, mas recomendado)
             style={[
                 styles.appointmentCard,
                 isPendente && { borderLeftWidth: 4, borderLeftColor: '#EF6C00' },
-                !canEdit && isProfessionalView && { opacity: 0.85 } // Leve transparência se não for o dono/admin
             ]}
             onPress={() => onPress(item)}
             activeOpacity={0.7}
@@ -46,9 +44,8 @@ export const AppointmentCard = ({
             <View style={styles.cardInfo}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={styles.salonName} numberOfLines={1}>
-                        {isProfessionalView ? `Cliente: ${item.clientName || 'Não informado'}` : item.salonName}
+                        {item.salonName}
                     </Text>
-                    {/* Ícone de cadeado se o profissional não tiver permissão de edição */}
                     {!canEdit && isProfessionalView && (
                         <Ionicons name="lock-closed" size={12} color="#999" style={{ marginLeft: 5 }} />
                     )}
@@ -65,10 +62,10 @@ export const AppointmentCard = ({
                     <Text style={styles.timeText}>{item.time}</Text>
                 </View>
 
-                {/* Se for visão Admin, mostra quem é o profissional responsável por esse serviço */}
-                {canEdit && isProfessionalView && item.professionalName && (
-                    <Text style={{ fontSize: 10, color: '#888', marginTop: 4 }}>
-                        Atendente: {item.professionalName}
+                {/* Mostra o atendente se disponível, independente de ser cliente ou pro */}
+                {item.professionalName && (
+                    <Text style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                        Profissional: <Text style={{ fontWeight: '500' }}>{item.professionalName}</Text>
                     </Text>
                 )}
             </View>

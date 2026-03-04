@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ScrollView, Switch, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
@@ -7,16 +7,22 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { appointmentStyles as styles } from "@/app/Styles/appointmentStyles";
 import { Appointment } from '@/app/Models/Appointment';
 import { Salon } from '@/app/Models/Salon';
+import { Professional } from '@/app/Models/Professional';
 import { COLORS } from '@/constants/theme';
 
 import { AppointmentRepository } from '@/app/Repository/AppointmentRepository';
 import { SalonRepository } from '@/app/Repository/SalonRepository';
+import { ProfessionalRepository } from '@/app/Repository/ProfessionalRepository';
 import { useAuth } from "@/app/Managers/AuthManager";
 
 import { SearchResultSkeleton } from '@/app/Components/AnimatedSkeleton';
-import { AppointmentCard } from '@/app/Components/AppointmentCard';
 import { AppointmentDetailModal } from '@/app/Components/AppointmentDetailModal';
 import { AuthGuardPlaceholder } from '@/app/Components/AuthGuardPlaceholder';
+import { AppointmentCard } from "@/app/Components/AppointmentCard";
+
+// Importação das Modais de Detalhe
+import { SalonDetailModal } from '@/app/Components/SalonDetailModal';
+import { ProfessionalDetailModal } from '@/app/Components/ProfessionalDetailModal';
 
 type SubTab = 'unidade' | 'meus_horarios';
 
@@ -24,99 +30,146 @@ export default function AppointmentsScreen() {
     const insets = useSafeAreaInsets();
     const { isAuthenticated, currentUser } = useAuth();
 
-    // Idealmente, esses seriam injetados via Context ou Props se usássemos Clean Architecture pura
+    // Define se a visão base é de cliente ou profissional
+    const isClient = currentUser?.role === 'client';
+
+    // Repositories
     const appointmentRepo = useMemo(() => new AppointmentRepository(), []);
     const salonRepo = useMemo(() => new SalonRepository(), []);
+    const profRepo = useMemo(() => new ProfessionalRepository(), []);
 
-    const [activeTab, setActiveTab] = useState<SubTab>('unidade');
+    // --- ESTADOS DE INTERFACE ---
+    const [activeTab, setActiveTab] = useState<SubTab>(isClient ? 'meus_horarios' : 'unidade');
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedStatus, setSelectedStatus] = useState<Appointment['status']>('Confirmado');
     const [showCancelled, setShowCancelled] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [navLoading, setNavLoading] = useState(false);
 
+    // --- ESTADOS DE DADOS ---
     const [units, setUnits] = useState<Salon[]>([]);
     const [selectedUnit, setSelectedUnit] = useState<Salon | null>(null);
-    const [loading, setLoading] = useState(true);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
 
+    // --- ESTADOS DAS MODAIS ---
     const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
-    const [apptModalVisible, setApptModalVisible] = useState(false);
+
     const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+    const [apptModalVisible, setApptModalVisible] = useState(false);
 
-    // 1. Guard de Autenticação
-    if (!isAuthenticated) {
-        return (
-            <AuthGuardPlaceholder
-                title="Sua Agenda"
-                description="Faça login para gerenciar seus agendamentos."
-                icon="calendar-outline"
-            />
-        );
-    }
+    const [selectedSalonData, setSelectedSalonData] = useState<Salon | null>(null);
+    const [salonModalVisible, setSalonModalVisible] = useState(false);
 
-    // 2. Carrega as Unidades - CORRIGIDO
-    useEffect(() => {
-        let isMounted = true;
-        const fetchUnits = async () => {
-            if (!currentUser?.id) return;
+    const [selectedProfData, setSelectedProfData] = useState<Professional | null>(null);
+    const [profModalVisible, setProfModalVisible] = useState(false);
 
-            setLoading(true);
-            try {
-                const mySalons = await salonRepo.getSalonsByProfessional(currentUser.id);
-                if (isMounted) {
-                    setUnits(mySalons);
-                    if (mySalons.length > 0) {
-                        setSelectedUnit(mySalons[0]);
-                    } else {
-                        // Se não tem unidades, para o loading aqui pois loadData não será útil
-                        setLoading(false);
-                    }
-                }
-            } catch (error) {
-                console.error("Erro ao buscar unidades:", error);
-                if (isMounted) setLoading(false);
-            }
-        };
+    // --- LÓGICA DE CALENDÁRIO ---
+    const changeDate = (amount: number) => {
+        const newDate = new Date(selectedDate);
+        newDate.setDate(selectedDate.getDate() + amount);
+        setSelectedDate(newDate);
+    };
 
-        fetchUnits();
-        return () => { isMounted = false; };
-    }, [currentUser?.id, salonRepo]);
-
-    // 3. Gerador de Calendário
     const daysHeader = useMemo(() => {
         const days = [];
-        const baseDate = new Date(selectedDate);
-        for (let i = 0; i < 12; i++) {
-            const date = new Date(baseDate);
-            date.setDate(baseDate.getDate() + i);
+        const startPoint = new Date(selectedDate);
+        startPoint.setDate(selectedDate.getDate() - 2);
+        for (let i = 0; i < 14; i++) {
+            const date = new Date(startPoint);
+            date.setDate(startPoint.getDate() + i);
             days.push(date);
         }
         return days;
     }, [selectedDate]);
 
-    // 4. Carga de Agendamentos
+    // --- NAVEGAÇÃO ENTRE MODAIS ---
+    const handleNavigateToSalon = async (salonId?: string) => {
+        const id = salonId || selectedAppt?.salonId;
+        if (!id) return;
+        setNavLoading(true);
+        try {
+            const data = await salonRepo.getSalonById(id);
+            if (data) {
+                setSelectedSalonData(data);
+                setApptModalVisible(false);
+                setProfModalVisible(false);
+                setSalonModalVisible(true);
+            }
+        } catch (error) {
+            console.error("Erro ao carregar salão:", error);
+        } finally {
+            setNavLoading(false);
+        }
+    };
+
+    const handleNavigateToProfessional = async () => {
+        if (!selectedAppt?.professionalId) return;
+        setNavLoading(true);
+        try {
+            const profData = await profRepo.getProfessionalById(selectedAppt.professionalId);
+            if (profData) {
+                setSelectedProfData(profData);
+                setApptModalVisible(false);
+                setProfModalVisible(true);
+            }
+        } catch (error) {
+            console.error("Erro ao carregar profissional:", error);
+        } finally {
+            setNavLoading(false);
+        }
+    };
+
+    // --- CARREGAMENTO DE DADOS ---
+    useEffect(() => {
+        if (!isAuthenticated || !currentUser?.id || isClient) {
+            if(isClient) setLoading(false);
+            return;
+        }
+        let isMounted = true;
+        const fetchUnits = async () => {
+            setLoading(true);
+            try {
+                const mySalons = await salonRepo.getSalonsByProfessional(currentUser.id);
+                if (isMounted) {
+                    setUnits(mySalons);
+                    if (mySalons.length > 0) setSelectedUnit(mySalons[0]);
+                    else setLoading(false);
+                }
+            } catch (error) { if (isMounted) setLoading(false); }
+        };
+        fetchUnits();
+        return () => { isMounted = false; };
+    }, [currentUser?.id, salonRepo, isAuthenticated, isClient]);
+
     const loadData = useCallback(async () => {
         if (!currentUser) return;
 
-        // Se estiver na aba unidade e não houver unidades, limpamos e saímos
-        if (activeTab === 'unidade' && units.length === 0) {
+        // Se for profissional na aba unidade sem unidades vinculadas
+        if (!isClient && activeTab === 'unidade' && units.length === 0) {
             setAppointments([]);
+            setLoading(false);
             return;
         }
 
         setLoading(true);
         try {
             let data: Appointment[] = [];
+
             if (activeTab === 'unidade' && selectedUnit) {
+                // Visão de Agenda da Unidade (Filtra por data e unidade)
                 data = await appointmentRepo.getAppointmentsByUnitAndDate(
                     selectedUnit.id,
                     selectedDate,
                     selectedUnit.isAdmin ? undefined : currentUser.id
                 );
-                if (!showCancelled) {
-                    data = data.filter(app => app.status !== 'Cancelado');
-                }
-            } else if (activeTab === 'meus_horarios') {
-                data = await appointmentRepo.getAppointmentsByStatus(selectedStatus);
+                if (!showCancelled) data = data.filter(app => app.status !== 'Cancelado');
+            } else {
+                // Aba Pessoal (Meus Horários) - Filtra por Status
+                // Importante: Filtramos para que o profissional veja os dele e o cliente veja os dele
+                const statusData = await appointmentRepo.getAppointmentsByStatus(selectedStatus);
+                data = statusData.filter(app =>
+                    isClient ? app.clientId === currentUser.id : app.professionalId === currentUser.id
+                );
             }
             setAppointments(data);
         } catch (e) {
@@ -124,21 +177,30 @@ export default function AppointmentsScreen() {
         } finally {
             setLoading(false);
         }
-    }, [currentUser, activeTab, selectedDate, selectedStatus, selectedUnit, units.length, showCancelled, appointmentRepo]);
+    }, [currentUser, activeTab, selectedDate, selectedStatus, selectedUnit, units.length, showCancelled, appointmentRepo, isClient]);
 
-    // Dispara loadData sempre que mudar tab, data, status ou a unidade selecionada
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        if (isAuthenticated) loadData();
+    }, [loadData, isAuthenticated]);
 
-    // --- RENDERS ---
+    if (!isAuthenticated) {
+        return <AuthGuardPlaceholder title="Sua Agenda" description="Faça login para gerenciar seus agendamentos." icon="calendar-outline" />;
+    }
 
     const renderCalendarHeader = () => (
         <View style={styles.calendarContainer}>
             <View style={styles.monthHeader}>
-                <Text style={styles.monthTitle}>
-                    {selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => changeDate(-1)} style={{ padding: 5 }}>
+                        <Ionicons name="chevron-back" size={18} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.monthTitle, { marginHorizontal: 8 }]}>
+                        {selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
+                    </Text>
+                    <TouchableOpacity onPress={() => changeDate(1)} style={{ padding: 5 }}>
+                        <Ionicons name="chevron-forward" size={18} color={COLORS.primary} />
+                    </TouchableOpacity>
+                </View>
                 {selectedUnit?.isAdmin && (
                     <View style={styles.adminToggleRow}>
                         <Text style={styles.toggleLabel}>Ver Cancelados</Text>
@@ -146,19 +208,22 @@ export default function AppointmentsScreen() {
                             value={showCancelled}
                             onValueChange={setShowCancelled}
                             trackColor={{ false: "#DDD", true: COLORS.primary }}
-                            style={{ transform: [{ scale: 0.7 }] }}
+                            style={{ transform: [{ scale: 0.6 }] }}
                         />
                     </View>
                 )}
             </View>
 
             <View style={styles.calendarHeaderContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateBar}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.dateBar}
+                    contentContainerStyle={{ paddingHorizontal: 20, paddingRight: 40 }}
+                >
                     {daysHeader.map((date, idx) => {
                         const isSelected = date.toDateString() === selectedDate.toDateString();
-                        const dayName = date.toLocaleDateString('pt-BR', { weekday: 'short' })
-                            .replace('.', '').substring(0, 3).toUpperCase();
-
+                        const dayName = date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').substring(0, 3).toUpperCase();
                         return (
                             <TouchableOpacity
                                 key={idx}
@@ -172,7 +237,7 @@ export default function AppointmentsScreen() {
                     })}
                 </ScrollView>
                 <TouchableOpacity style={styles.miniCalendarBtn} onPress={() => setDatePickerVisibility(true)}>
-                    <Ionicons name="calendar-outline" size={22} color={COLORS.primary} />
+                    <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -180,37 +245,50 @@ export default function AppointmentsScreen() {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
+            {navLoading && (
+                <View style={{ position: 'absolute', zIndex: 9999, width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={COLORS.primary} />
+                </View>
+            )}
+
             <View style={styles.header}>
                 <Text style={styles.title}>Agendamentos</Text>
-                <View style={styles.subTabRow}>
-                    <TouchableOpacity onPress={() => setActiveTab('unidade')} style={[styles.subTabBtn, activeTab === 'unidade' && styles.subTabBtnActive]}>
-                        <Text style={[styles.subTabText, activeTab === 'unidade' && styles.subTabTextActive]}>Unidade</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setActiveTab('meus_horarios')} style={[styles.subTabBtn, activeTab === 'meus_horarios' && styles.subTabBtnActive]}>
-                        <Text style={[styles.subTabText, activeTab === 'meus_horarios' && styles.subTabTextActive]}>Pessoal</Text>
-                    </TouchableOpacity>
-                </View>
+                {!isClient && (
+                    <View style={styles.subTabRow}>
+                        <TouchableOpacity onPress={() => setActiveTab('unidade')} style={[styles.subTabBtn, activeTab === 'unidade' && styles.subTabBtnActive]}>
+                            <Text style={[styles.subTabText, activeTab === 'unidade' && styles.subTabTextActive]}>Unidade</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setActiveTab('meus_horarios')} style={[styles.subTabBtn, activeTab === 'meus_horarios' && styles.subTabBtnActive]}>
+                            <Text style={[styles.subTabText, activeTab === 'meus_horarios' && styles.subTabTextActive]}>Pessoal</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
 
             <View style={styles.infoBox}>
                 <Ionicons name={activeTab === 'unidade' ? (selectedUnit?.isAdmin ? "shield-checkmark" : "business") : "person-circle"} size={22} color={COLORS.primary} />
                 <View style={{ marginLeft: 12, flex: 1 }}>
                     <Text style={styles.infoTitle}>
-                        {activeTab === 'unidade' ? (selectedUnit?.isAdmin ? "Gestão Administrativa" : "Agenda da Unidade") : "Minha Agenda Pessoal"}
+                        {activeTab === 'unidade' ? (selectedUnit?.isAdmin ? "Gestão Administrativa" : "Agenda da Unidade") : "Meus Agendamentos"}
                     </Text>
                     <Text style={styles.infoText}>
                         {activeTab === 'unidade'
-                            ? (selectedUnit ? `Atuando em ${selectedUnit.name}` : (loading ? "Buscando unidades..." : "Nenhuma unidade vinculada"))
-                            : "Filtre seus atendimentos por status."}
+                            ? (selectedUnit ? `Atuando em ${selectedUnit.name}` : "Nenhuma unidade vinculada")
+                            : (isClient ? "Acompanhe seus horários marcados." : "Filtre seus atendimentos por status.")}
                     </Text>
                 </View>
             </View>
 
-            {activeTab === 'unidade' ? (
+            {!isClient && activeTab === 'unidade' ? (
                 units.length > 0 ? (
-                    <>
+                    <View style={{ backgroundColor: '#FFF' }}>
                         <Text style={styles.sectionLabel}>Minhas Unidades</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitSelectorBar} contentContainerStyle={{ paddingHorizontal: 20 }}>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.unitSelectorBar}
+                            contentContainerStyle={{ paddingHorizontal: 20, paddingRight: 40 }}
+                        >
                             {units.map((unit) => (
                                 <TouchableOpacity
                                     key={unit.id}
@@ -223,19 +301,18 @@ export default function AppointmentsScreen() {
                             ))}
                         </ScrollView>
                         {renderCalendarHeader()}
-                    </>
+                    </View>
                 ) : (
-                    !loading && (
-                        <View style={styles.emptyContainer}>
-                            <Ionicons name="business-outline" size={50} color="#DDD" />
-                            <Text style={styles.emptyText}>Você não possui unidades vinculadas.</Text>
-                        </View>
-                    )
+                    !loading && <View style={styles.emptyContainer}><Text>Sem unidades.</Text></View>
                 )
             ) : (
-                <View style={{ marginTop: 5 }}>
+                <View style={{ backgroundColor: '#FFF', paddingBottom: 10 }}>
                     <Text style={styles.sectionLabel}>Filtrar por Status</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={[styles.filterContainer, { paddingRight: 40 }]}
+                    >
                         {['Confirmado', 'Pendente', 'Concluído', 'Cancelado'].map((status) => (
                             <TouchableOpacity
                                 key={status}
@@ -249,17 +326,17 @@ export default function AppointmentsScreen() {
                 </View>
             )}
 
-            {loading ? (
-                <SearchResultSkeleton />
-            ) : (
+            {loading ? <SearchResultSkeleton /> : (
                 <FlatList
                     data={appointments}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
                         <AppointmentCard
                             item={item}
-                            isProfessionalView={true}
-                            canEdit={selectedUnit?.isAdmin || item.professionalId === currentUser?.id}
+                            // Correção: Se não é cliente (é profissional), sempre mostra a visão profissional (nome do cliente)
+                            isProfessionalView={!isClient}
+                            // Permite editar se for profissional ou admin da unidade
+                            canEdit={!isClient && (selectedUnit?.isAdmin || item.professionalId === currentUser?.id)}
                             onPress={(it) => { setSelectedAppt(it); setApptModalVisible(true); }}
                         />
                     )}
@@ -273,14 +350,32 @@ export default function AppointmentsScreen() {
                 />
             )}
 
+            {/* MODAIS */}
             <AppointmentDetailModal
                 visible={apptModalVisible}
                 appointment={selectedAppt}
                 userRole={currentUser?.role}
+                repository={appointmentRepo}
                 onClose={() => setApptModalVisible(false)}
                 onRefresh={loadData}
-                onNavigateToSalon={(id) => console.log(id)}
-                onNavigateToProfessional={(id) => console.log(id)}
+                onNavigateToSalon={() => handleNavigateToSalon()}
+                onNavigateToProfessional={handleNavigateToProfessional}
+            />
+
+            {selectedSalonData && (
+                <SalonDetailModal
+                    visible={salonModalVisible}
+                    salon={selectedSalonData}
+                    repository={salonRepo}
+                    onClose={() => setSalonModalVisible(false)}
+                />
+            )}
+
+            <ProfessionalDetailModal
+                visible={profModalVisible}
+                professional={selectedProfData}
+                onClose={() => setProfModalVisible(false)}
+                onOpenSalon={(salon) => handleNavigateToSalon(salon.id)}
             />
 
             <DateTimePickerModal

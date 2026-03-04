@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Modal, View, Text, TouchableOpacity, ScrollView,
-    TextInput, Alert, Platform, Switch
+    TextInput, Alert, Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Professional } from "@/app/Models/Professional";

@@ -22,6 +22,7 @@ export interface Appointment {
     isReviewed?: boolean;
     clientName?:string;
     clientPhone?:string;
+    clientId?:string;
 }
 
 export const MOCK_Appointment_LIST: Appointment[] = [
@@ -37,11 +38,12 @@ export const MOCK_Appointment_LIST: Appointment[] = [
         serviceName: 'Corte de Cabelo Masculino',
         price: 75.00,
         duration: '45 min',
-        professionalId: '1',
+        professionalId: '123',
         professionalName: 'Ana Silva',
         date: '2026-10-24T14:00:00',
         time: '14:00',
-        status: 'Confirmado'
+        status: 'Confirmado',
+        clientId:  '1',
     },
     {
         id: '2',
@@ -55,11 +57,12 @@ export const MOCK_Appointment_LIST: Appointment[] = [
         serviceName: 'Barba Terapia',
         price: 50.00,
         duration: '30 min',
-        professionalId: '2',
+        professionalId: '123',
         professionalName: 'Bruno Costa',
         date: '2026-10-26T10:30:00',
         time: '10:30',
-        status: 'Pendente'
+        status: 'Pendente',
+        clientId:  '1',
     },
     {
         id: '3',
@@ -73,11 +76,12 @@ export const MOCK_Appointment_LIST: Appointment[] = [
         serviceName: 'Limpeza de Pele',
         price: 120.00,
         duration: '60 min',
-        professionalId: '3',
+        professionalId: '123',
         professionalName: 'Carla Dias',
         date: '2026-10-28T09:00:00',
         time: '09:00',
-        status: 'Confirmado'
+        status: 'Confirmado',
+        clientId:  '1',
     },
     {
         id: '4',
@@ -91,10 +95,11 @@ export const MOCK_Appointment_LIST: Appointment[] = [
         serviceName: 'Manicure Gel',
         price: 90.00,
         duration: '90 min',
-        professionalId: '4',
+        professionalId: '123',
         professionalName: 'Fernanda O.',
         date: '2026-11-01T16:00:00',
         time: '16:00',
-        status: 'Cancelado'
+        status: 'Cancelado',
+        clientId:  '1',
     }
 ];
