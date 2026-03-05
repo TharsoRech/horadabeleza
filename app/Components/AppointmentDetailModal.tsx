@@ -11,6 +11,7 @@ interface Props {
     visible: boolean;
     appointment: Appointment | null;
     userRole?: UserRole;
+    isManager?: boolean; // Nova prop para definir se tem poder de edição/gestão
     repository: IAppointmentRepository;
     onClose: () => void;
     onRefresh: () => void;
@@ -22,13 +23,14 @@ export const AppointmentDetailModal = ({
                                            visible,
                                            appointment,
                                            userRole,
+                                           isManager = false, // Padrão falso
                                            repository,
                                            onClose,
                                            onRefresh,
                                            onNavigateToSalon,
                                            onNavigateToProfessional
                                        }: Props) => {
-    const [isCancelling, setIsCancelling] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
     const [alertConfig, setAlertConfig] = useState({
         visible: false,
         title: '',
@@ -40,9 +42,9 @@ export const AppointmentDetailModal = ({
 
     if (!appointment) return null;
 
-    const isProfessional = userRole === UserRole.PROFISSIONAL;
-    // Agora permite cancelar se estiver Confirmado OU Pendente
+    // Lógica de permissões baseada na prop isManager
     const canCancel = appointment.status === 'Confirmado' || appointment.status === 'Pendente';
+    const canConfirm = appointment.status === 'Pendente' && isManager;
 
     const showAlert = (title: string, message: string, type: 'info' | 'destructive' = 'info', onConfirm?: () => void, onCancel?: () => void) => {
         setAlertConfig({
@@ -61,7 +63,7 @@ export const AppointmentDetailModal = ({
             'destructive',
             async () => {
                 hideAlert();
-                setIsCancelling(true);
+                setIsProcessing(true);
                 try {
                     const success = await repository.updateAppointmentStatus(appointment.id, 'Cancelado');
                     if (success) {
@@ -71,24 +73,42 @@ export const AppointmentDetailModal = ({
                 } catch (error) {
                     showAlert("Erro", "Falha ao processar cancelamento.", "destructive");
                 } finally {
-                    setIsCancelling(false);
+                    setIsProcessing(false);
                 }
             },
             () => hideAlert()
         );
     };
 
+    const handleConfirmRequest = async () => {
+        setIsProcessing(true);
+        try {
+            const success = await repository.updateAppointmentStatus(appointment.id, 'Confirmado');
+            if (success) {
+                onRefresh();
+                onClose();
+            }
+        } catch (error) {
+            showAlert("Erro", "Falha ao confirmar agendamento.", "destructive");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     const handleContact = () => {
-        const whats = appointment.salonPhone;
-        const phone = appointment?.salonWhatsApp;
-        if (whats) {
-            const cleanNumber = whats.replace(/\D/g, '');
+        // Se for gestor, o contato principal é o do cliente. Se for cliente, o contato é o do salão.
+        const targetPhone = isManager ? appointment.clientPhone : (appointment.salonWhatsApp || appointment.salonPhone);
+        const targetName = isManager ? appointment.clientName : appointment.salonName;
+
+        if (targetPhone) {
+            const cleanNumber = targetPhone.replace(/\D/g, '');
             const finalNumber = cleanNumber.length === 11 ? `55${cleanNumber}` : cleanNumber;
-            const msg = encodeURIComponent(`Olá, gostaria de falar sobre um agendamento no ${appointment?.salonName}.`);
+            const msg = encodeURIComponent(`Olá ${targetName}, gostaria de falar sobre o agendamento do serviço ${appointment.serviceName}.`);
             const url = `https://wa.me/${finalNumber}?text=${msg}`;
-            Linking.openURL(url).catch(() => phone && Linking.openURL(`tel:${phone.replace(/\D/g, '')}`));
-        } else if (phone) {
-            Linking.openURL(`tel:${phone.replace(/\D/g, '')}`);
+
+            Linking.openURL(url).catch(() => Linking.openURL(`tel:${cleanNumber}`));
+        } else {
+            showAlert("Atenção", "Nenhum número de contato disponível.", "info");
         }
     };
 
@@ -138,7 +158,6 @@ export const AppointmentDetailModal = ({
                         <View style={styles.ticketCard}>
 
                             <View style={styles.section}>
-                                {/* Cabeçalho clicável para navegar até o salão */}
                                 <TouchableOpacity
                                     style={styles.salonInfoRow}
                                     onPress={() => onNavigateToSalon(appointment.salonId)}
@@ -171,6 +190,16 @@ export const AppointmentDetailModal = ({
                             <View style={styles.section}>
                                 <DetailRow label="Serviço" value={appointment.serviceName} icon="sparkles-outline" />
 
+                                <DetailRow label="Duração" value={appointment.duration || "Não informada"} icon="time-outline" />
+
+                                {isManager && (
+                                    <DetailRow
+                                        label="Cliente"
+                                        value={`${appointment.clientName || 'Não informado'} ${appointment.clientPhone ? `(${appointment.clientPhone})` : ''}`}
+                                        icon="people-outline"
+                                    />
+                                )}
+
                                 <TouchableOpacity
                                     onPress={() => onNavigateToProfessional(appointment.professionalId)}
                                     activeOpacity={0.7}
@@ -178,14 +207,14 @@ export const AppointmentDetailModal = ({
                                 >
                                     <DetailRow
                                         label="Profissional"
-                                        value={`${appointment.professionalName} ${isProfessional ? '(Você)' : '>'}`}
+                                        value={`${appointment.professionalName} ${userRole === UserRole.PROFISSIONAL ? '(Você)' : '>'}`}
                                         icon="person-outline"
                                     />
                                 </TouchableOpacity>
 
                                 <DetailRow
                                     label="Data e Horário"
-                                    value={`${appointment.date} às ${appointment.time}`}
+                                    value={`${appointment.date.split('T')[0]} às ${appointment.time}`}
                                     icon="calendar-outline"
                                 />
 
@@ -201,19 +230,34 @@ export const AppointmentDetailModal = ({
                         </View>
 
                         <View style={styles.actionContainer}>
+                            {canConfirm && (
+                                <TouchableOpacity
+                                    style={[styles.primaryAction, { backgroundColor: '#4CAF50', marginBottom: 12 }]}
+                                    onPress={handleConfirmRequest}
+                                    disabled={isProcessing}
+                                >
+                                    {isProcessing ?
+                                        <ActivityIndicator size="small" color="#FFF" /> :
+                                        <>
+                                            <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
+                                            <Text style={styles.actionText}>Confirmar Agendamento</Text>
+                                        </>
+                                    }
+                                </TouchableOpacity>
+                            )}
+
                             <TouchableOpacity style={[styles.primaryAction, { backgroundColor: '#25D366' }]} onPress={handleContact}>
                                 <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
-                                <Text style={styles.actionText}>Contatar via WhatsApp</Text>
+                                <Text style={styles.actionText}>{isManager ? 'Contatar Cliente' : 'Contatar Salão'}</Text>
                             </TouchableOpacity>
 
-                            {/* Botão Cancelar: disponível para Pendente ou Confirmado */}
                             {canCancel && (
                                 <TouchableOpacity
                                     style={[styles.secondaryAction, { borderColor: '#D32F2F', marginTop: 12 }]}
                                     onPress={handleCancelRequest}
-                                    disabled={isCancelling}
+                                    disabled={isProcessing}
                                 >
-                                    {isCancelling ?
+                                    {isProcessing ?
                                         <ActivityIndicator size="small" color="#D32F2F" /> :
                                         <Text style={[styles.secondaryActionText, { color: '#D32F2F' }]}>Cancelar Horário</Text>
                                     }

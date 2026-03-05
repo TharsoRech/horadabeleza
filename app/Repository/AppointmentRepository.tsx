@@ -88,24 +88,27 @@ export class AppointmentRepository implements IAppointmentRepository {
     async getAppointmentsByUnitAndDate(
         unitId: string,
         date: Date,
-        professionalId?: string 
+        professionalId?: string
     ): Promise<Appointment[]> {
-        return new Promise((resolve) => {
-            const targetDate = date.toISOString().split('T')[0];
+        return new Promise(async (resolve) => {
+            // Formata a data de busca para YYYY-MM-DD ignorando o fuso horário
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const targetDate = `${year}-${month}-${day}`;
 
             const filtered = MOCK_Appointment_LIST.filter(app => {
-                const appDate = new Date(app.date).toISOString().split('T')[0];
-                const matchUnit = app.salonId === unitId;
-                const matchDate = appDate === targetDate;
+                // Pega apenas os primeiros 10 caracteres do campo date (YYYY-MM-DD)
+                const appDateOnly = app.date.split('T')[0];
 
-                // Se for admin (professionalId undefined), traz tudo da unidade
-                // Se não for admin, traz apenas se o professionalId bater
+                const matchUnit = app.salonId === unitId;
+                const matchDate = appDateOnly === targetDate;
                 const matchProf = professionalId ? app.professionalId === professionalId : true;
 
                 return matchUnit && matchDate && matchProf;
             });
-
-            setTimeout(() => resolve(filtered), 400);
+            const processed = await this._attachImages(filtered);
+            setTimeout(() => resolve(processed), 400);
         });
     }
 

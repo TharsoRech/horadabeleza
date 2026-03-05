@@ -9,6 +9,13 @@ import { Service } from "@/app/Models/Service";
 import { COLORS } from "@/constants/theme";
 import { ProfessionalEditModalStyles as styles } from "../Styles/ProfessionalEditModalStyles";
 
+// Interface estendida para garantir que o TS reconheça o schedule
+interface ProfessionalWithSchedule extends Professional {
+    schedule: {
+        [key: string]: string[];
+    };
+}
+
 interface Props {
     visible: boolean;
     professionals: Professional[];
@@ -22,12 +29,17 @@ const DAYS_OF_WEEK = [
     { id: '3', label: 'Qua' }, { id: '4', label: 'Qui' }, { id: '5', label: 'Sex' }, { id: '6', label: 'Sáb' }
 ];
 
-const TIME_OPTIONS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
+// Gerador de horários de 30 em 30 minutos
+const TIME_OPTIONS = [
+    "07:00","07:30","08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+    "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
+    "20:00", "20:30", "21:00","22:00","22:30","23:30", "24:00"
+];
 
 export const ProfessionalEditModal = ({ visible, professionals, allServices, onClose, onSave }: Props) => {
     const [localProfs, setLocalProfs] = useState<Professional[]>([]);
-
-    const [tempProf, setTempProf] = useState<Professional | null>(null);
+    const [tempProf, setTempProf] = useState<ProfessionalWithSchedule | null>(null);
     const [selectedDay, setSelectedDay] = useState('1');
 
     // Estados Novo Profissional
@@ -35,7 +47,7 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
     const [cpf, setCpf] = useState('');
     const [specialty, setSpecialty] = useState('');
     const [bio, setBio] = useState('');
-    const [isAdmin, setIsAdmin] = useState(false); // NOVO: Estado Admin
+    const [isAdmin, setIsAdmin] = useState(false);
     const [image, setImage] = useState<string | null>(null);
 
     useEffect(() => {
@@ -56,13 +68,13 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
             return Alert.alert("Campos Incompletos", "Preencha todos os campos obrigatórios.");
         }
 
-        const newProf: Professional = {
+        const newProf: ProfessionalWithSchedule = {
             id: Math.random().toString(36).substr(2, 9),
             name: name.trim(),
             cpf: cpf.trim(),
             specialty: specialty.trim(),
             bio: bio.trim(),
-            isAdmin: isAdmin, // Adicionado
+            isAdmin: isAdmin,
             image: image || '',
             rating: 5.0,
             reviews: 0,
@@ -71,11 +83,9 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
         } as any;
 
         setLocalProfs([newProf, ...localProfs]);
-        // Limpar campos
         setName(''); setCpf(''); setSpecialty(''); setBio(''); setIsAdmin(false);
     };
 
-    // FUNÇÃO PARA REMOVER
     const handleRemoveProf = (id: string) => {
         Alert.alert(
             "Remover Profissional",
@@ -101,17 +111,31 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
 
     const toggleTime = (time: string) => {
         if (!tempProf) return;
-        const currentSchedule = { ...(tempProf as any).schedule || {} };
+        const currentSchedule = { ...(tempProf.schedule || {}) };
         const dayTimes = [...(currentSchedule[selectedDay] || [])];
         const index = dayTimes.indexOf(time);
         index > -1 ? dayTimes.splice(index, 1) : dayTimes.push(time);
         currentSchedule[selectedDay] = dayTimes;
-        setTempProf({ ...tempProf, schedule: currentSchedule } as any);
+        setTempProf({ ...tempProf, schedule: currentSchedule });
+    };
+
+    const toggleAllTimesOfDay = () => {
+        if (!tempProf) return;
+        const currentSchedule = { ...(tempProf.schedule || {}) };
+        const currentDayTimes = currentSchedule[selectedDay] || [];
+
+        // Se o dia já está todo selecionado, limpa. Se não, seleciona tudo.
+        if (currentDayTimes.length === TIME_OPTIONS.length) {
+            currentSchedule[selectedDay] = [];
+        } else {
+            currentSchedule[selectedDay] = [...TIME_OPTIONS];
+        }
+        setTempProf({ ...tempProf, schedule: currentSchedule });
     };
 
     const saveChanges = () => {
         if (tempProf) {
-            setLocalProfs(prev => prev.map(p => p.id === tempProf.id ? tempProf : p));
+            setLocalProfs(prev => prev.map(p => p.id === tempProf.id ? (tempProf as any) : p));
             setTempProf(null);
         }
     };
@@ -136,7 +160,6 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
                         <TextInput style={styles.input} placeholder="Cargo/Especialidade" value={specialty} onChangeText={setSpecialty} />
                         <TextInput style={[styles.input, { height: 60 }]} placeholder="Bio" multiline value={bio} onChangeText={setBio} />
 
-                        {/* TOGGLE ADMIN NO CADASTRO */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, paddingHorizontal: 5 }}>
                             <Text style={{ color: COLORS.textMain }}>Permissão de Administrador</Text>
                             <Switch
@@ -156,7 +179,7 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
                         <Text style={styles.sectionLabel}>Profissionais Cadastrados</Text>
                         {localProfs.map(prof => (
                             <View key={prof.id} style={styles.profCard}>
-                                <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} onPress={() => setTempProf({...prof})}>
+                                <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} onPress={() => setTempProf(prof as any)}>
                                     <View style={styles.info}>
                                         <Text style={styles.name}>{prof.name} {prof.isAdmin && <Ionicons name="shield-checkmark" size={14} color={COLORS.primary} />}</Text>
                                         <Text style={styles.details}>{prof.specialty} • {prof.cpf || 'Sem CPF'}</Text>
@@ -164,7 +187,7 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
                                 </TouchableOpacity>
 
                                 <View style={{ flexDirection: 'row', gap: 15 }}>
-                                    <TouchableOpacity onPress={() => setTempProf({...prof})}>
+                                    <TouchableOpacity onPress={() => setTempProf(prof as any)}>
                                         <Ionicons name="settings-outline" size={22} color={COLORS.primary} />
                                     </TouchableOpacity>
                                     <TouchableOpacity onPress={() => handleRemoveProf(prof.id)}>
@@ -176,7 +199,6 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
                     </View>
                 </ScrollView>
 
-                {/* MODAL DE AJUSTE */}
                 {tempProf && (
                     <Modal visible={!!tempProf} transparent animationType="fade">
                         <View style={styles.modalOverlay}>
@@ -187,7 +209,6 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
                                 </View>
 
                                 <ScrollView showsVerticalScrollIndicator={false}>
-                                    {/* MUDAR STATUS ADMIN NA EDIÇÃO */}
                                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, padding: 10, backgroundColor: '#F9F9F9', borderRadius: 10 }}>
                                         <Text style={{ fontWeight: 'bold' }}>Administrador da Unidade</Text>
                                         <Switch
@@ -209,8 +230,18 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
                                         ))}
                                     </View>
 
-                                    {/* AGENDA... (Resto do código mantido igual) */}
-                                    <Text style={[styles.subLabel, { marginTop: 20 }]}>Agenda Semanal:</Text>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom:12 }}>
+                                        <Text style={styles.subLabel}>Agenda Semanal:</Text>
+                                        <TouchableOpacity
+                                            onPress={toggleAllTimesOfDay}
+                                            style={{ backgroundColor: COLORS.primary + '15', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}
+                                        >
+                                            <Text style={{ fontSize: 12, color: COLORS.primary, fontWeight: 'bold' }}>
+                                                {(tempProf.schedule?.[selectedDay] || []).length === TIME_OPTIONS.length ? "Limpar Dia" : "Selecionar Tudo"}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.daysRow}>
                                         {DAYS_OF_WEEK.map(day => (
                                             <TouchableOpacity key={day.id} style={[styles.dayButton, selectedDay === day.id && styles.activeDay]} onPress={() => setSelectedDay(day.id)}>
@@ -221,7 +252,7 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
 
                                     <View style={styles.timeGrid}>
                                         {TIME_OPTIONS.map(time => {
-                                            const isSelected = ((tempProf as any).schedule?.[selectedDay] || []).includes(time);
+                                            const isSelected = (tempProf.schedule?.[selectedDay] || []).includes(time);
                                             return (
                                                 <TouchableOpacity key={time} onPress={() => toggleTime(time)} style={[styles.timeSlot, isSelected && styles.activeTime]}>
                                                     <Text style={[styles.timeSlotText, isSelected && styles.activeTimeText]}>{time}</Text>
