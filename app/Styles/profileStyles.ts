@@ -70,5 +70,14 @@ export const profileStyles = StyleSheet.create({
         borderRadius: 10,
         borderWidth: 1,
         borderColor: '#EEE'
+    },
+    menuIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        backgroundColor: '#F8F9FA', // Fundo sutil para o ícone
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 15,
     }
 });
