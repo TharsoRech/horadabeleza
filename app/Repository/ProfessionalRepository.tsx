@@ -1,10 +1,14 @@
 import { IProfessionalRepository } from "./Interfaces/IProfessionalRepository";
-import { Review, MOCK_REVIEWS } from "@/app/Models/Review";
-import { Salon, MOCK_SALONS_LIST } from "@/app/Models/Salon";
+import { Review } from "@/app/Models/Review";
+import { Salon } from "@/app/Models/Salon";
 import { imageToBase64 } from "@/app/Helpers/getBase64FromAsset";
-import {MOCK_PROFESSIONALS_LIST, Professional} from "../Models/Professional";
+import { Professional } from "../Models/Professional";
+import { apiClient } from "@/app/Utils/apiClient";
+import { ProfessionalResponse, ReviewResponse, SalonResponse } from "@/app/Types/apiTypes";
 
 export class ProfessionalRepository implements IProfessionalRepository {
+    private imageCache: Map<string, string> = new Map();
+
     /**
      * Helper para processar imagem do profissional (Base64)
      */
@@ -37,14 +41,30 @@ export class ProfessionalRepository implements IProfessionalRepository {
      * Implementação do getProfessionalById
      */
     async getProfessionalById(profId: string): Promise<Professional | null> {
-        // MOCK_PROFESSIONALS_LIST deve estar acessível/importado
-        const found = MOCK_PROFESSIONALS_LIST.find(p => p.id === profId);
+        try {
+            const response: ProfessionalResponse = await apiClient.get(`/professionals/${profId}`);
+            
+            // Converte a resposta da API para o modelo Professional
+            const professional: Professional = {
+                id: response.id,
+                name: response.name,
+                specialty: response.specialty,
+                rating: response.rating || 0,
+                reviews: response.reviews || 0,
+                bio: response.bio || '',
+                image: response.image,
+                serviceIds: response.serviceIds,
+                availableTimes: response.availableTimes || [],
+                cpf: response.cpf || '',
+                isAdmin: response.isAdmin || false
+            };
 
-        if (!found) return null;
-
-        return await this._attachProfessionalImage(found);
+            return professional;
+        } catch (error) {
+            console.error('Get professional error:', error);
+            return null;
+        }
     }
-    private imageCache: Map<string, string> = new Map();
 
     private async _attachSalonImage(salon: Salon): Promise<Salon> {
         const salonPhotos = [
@@ -73,31 +93,72 @@ export class ProfessionalRepository implements IProfessionalRepository {
      * Busca reviews específicas do profissional
      */
     async getProfessionalReviews(professionalId: string): Promise<Review[]> {
-        return new Promise((resolve) => {
-            // Filtra reviews onde o professionalId coincide
-            const filtered = MOCK_REVIEWS.filter(r => r.salonId === professionalId);
-            setTimeout(() => resolve(filtered), 300);
-        });
+        try {
+            const response: ReviewResponse[] = await apiClient.get(`/professionals/${professionalId}/reviews`);
+            
+            // Converte as respostas da API para o modelo Review
+            const reviews: Review[] = response.map(review => ({
+                id: review.id,
+                salonId: review.salonId || '',
+                professionalId: review.professionalId || '',
+                userId: review.userId,
+                userName: review.userName,
+                rating: review.rating,
+                comment: review.comment,
+                createdAt: review.createdAt
+            }));
+
+            return reviews;
+        } catch (error) {
+            console.error('Get professional reviews error:', error);
+            return [];
+        }
     }
 
     /**
      * Busca o salão vinculado para renderizar o SalonCard
      */
     async getSalonByProfessional(salonId: string): Promise<Salon | null> {
-        const salon = MOCK_SALONS_LIST.find(s => s.id === salonId);
-        if (!salon) return null;
-        return await this._attachSalonImage(salon);
+        try {
+            const response: SalonResponse = await apiClient.get(`/salons/${salonId}`);
+            
+            // Converte a resposta da API para o modelo Salon
+            const salon: Salon = {
+                id: response.id,
+                name: response.name,
+                address: response.address,
+                rating: response.rating || "0",
+                reviews: response.reviews || 0,
+                image: response.image,
+                serviceIds: response.serviceIds,
+                professionalIds: response.professionalIds,
+                whatsApp: response.whatsApp,
+                phone: response.phone,
+                description: response.description,
+                userHasVisited: response.userHasVisited || false,
+                gallery: response.gallery || [],
+                published: response.published || false,
+                isAdmin: response.isAdmin || false
+            };
+
+            return salon;
+        } catch (error) {
+            console.error('Get salon by professional error:', error);
+            return null;
+        }
     }
 
     /**
      * Verifica se o usuário tem permissão para avaliar (Regra de negócio)
      */
     async canUserReviewProfessional(professionalId: string, userId: string): Promise<boolean> {
-        return new Promise((resolve) => {
-            // Simulação: Apenas profissionais com ID par permitem review no Mock
-            const canReview = parseInt(professionalId) % 2 === 0;
-            setTimeout(() => resolve(canReview), 200);
-        });
+        try {
+            const response: { canReview: boolean } = await apiClient.get(`/professionals/${professionalId}/can-review?userId=${userId}`);
+            return response.canReview || false;
+        } catch (error) {
+            console.error('Check review permission error:', error);
+            return false;
+        }
     }
 
     async addProfessionalReview(
@@ -106,25 +167,30 @@ export class ProfessionalRepository implements IProfessionalRepository {
         userName: string,
         review: Partial<Review>
     ): Promise<Review> {
-        return new Promise((resolve, reject) => {
-            try {
-                const newReview: Review = {
-                    id: Math.random().toString(36).substring(2, 9),
-                    salonId: "",
-                    professionalId: professionalId,
-                    userId: userId, 
-                    userName: userName, 
-                    rating: review.rating || 5,
-                    comment: review.comment || "",
-                    createdAt: new Date().toISOString()
-                };
+        try {
+            const response: ReviewResponse = await apiClient.post(`/professionals/${professionalId}/reviews`, {
+                userId,
+                userName,
+                rating: review.rating || 5,
+                comment: review.comment || ""
+            });
+            
+            // Converte a resposta da API para o modelo Review
+            const newReview: Review = {
+                id: response.id,
+                salonId: response.salonId || '',
+                professionalId: response.professionalId || '',
+                userId: response.userId,
+                userName: response.userName,
+                rating: response.rating,
+                comment: response.comment,
+                createdAt: response.createdAt
+            };
 
-                setTimeout(() => {
-                    resolve(newReview);
-                }, 800);
-            } catch (error) {
-                reject(new Error("Erro ao publicar avaliação"));
-            }
-        });
+            return newReview;
+        } catch (error) {
+            console.error('Add professional review error:', error);
+            throw new Error("Erro ao publicar avaliação");
+        }
     }
 }

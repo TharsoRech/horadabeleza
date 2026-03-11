@@ -1,24 +1,47 @@
-import { INotificationRepository } from './Interfaces/INotificationRepository';
-import { Notification } from '@/app/Models/Notification';
+import {INotificationRepository} from './Interfaces/INotificationRepository';
+import {Notification, NotificationType} from '@/app/Models/Notification';
+import {apiClient} from "@/app/Utils/apiClient";
+import {NotificationResponse} from "@/app/Types/apiTypes";
 
 export class NotificationRepository implements INotificationRepository {
 
     async getNotifications(): Promise<Notification[]> {
-        // Simulando um pequeno delay de rede
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve(Notification.mockList());
-            }, 500);
-        });
+        try {
+            const response: NotificationResponse[] = await apiClient.get('/notifications');
+            
+            // Converte as respostas da API para o modelo Notification
+            return response.map(notification =>
+                new Notification({
+                    id: notification.id,
+                    title: notification.title,
+                    message: notification.message,
+                    time: notification.time,
+                    isRead: notification.isRead,
+                    type: notification.type as NotificationType
+                })
+            );
+        } catch (error) {
+            console.error('Get notifications error:', error);
+            return [];
+        }
     }
 
     async markAsRead(id: string): Promise<void> {
-        console.log(`Notificação ${id} marcada como lida no back-end`);
-        return Promise.resolve();
+        try {
+            await apiClient.put(`/notifications/${id}/read`, {});
+        } catch (error) {
+            console.error('Mark as read error:', error);
+            throw error;
+        }
     }
 
     async getUnreadCount(): Promise<number> {
-        const list = Notification.mockList();
-        return list.filter(n => !n.isRead).length;
+        try {
+            const response: { count: number } = await apiClient.get('/notifications/unread-count');
+            return response.count || 0;
+        } catch (error) {
+            console.error('Get unread count error:', error);
+            return 0;
+        }
     }
 }

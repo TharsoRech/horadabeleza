@@ -2,114 +2,160 @@ import {Subscription} from "../Models/Subscription";
 import {ISubscriptionRepository} from "@/app/Repository/Interfaces/ISubscriptionRepository";
 import {Plan} from "@/app/Models/Plan";
 import {COLORS} from "@/constants/theme";
+import { apiClient } from "@/app/Utils/apiClient";
+import { SubscriptionResponse, PlanResponse } from "@/app/Types/apiTypes";
 
 export class SubscriptionRepository implements ISubscriptionRepository {
     async getSubscription(): Promise<Subscription> {
-        // Simulando chamada de API/Firebase
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                // Caso 1: Usuário sem plano (Inativo)
-                resolve({
-                    id: "sub_001",
-                    isActive: false,
-                    planType: 'none',
-                    maxClients: 0,
-                    currentClients: 0,
-                    // trialStartDate: undefined, // Nunca usou trial
-                });
+        try {
+            const response: SubscriptionResponse = await apiClient.get('/subscriptions/current');
+            
+            // Converte a resposta da API para o modelo Subscription
+            const subscription: Subscription = {
+                id: response.id,
+                isActive: response.isActive,
+                planType: response.planType as 'none' | 'trial' | 'basic' | 'premium',
+                maxClients: response.maxClients,
+                currentClients: response.currentClients,
+                startDate: response.startDate,
+                trialStartDate: response.trialStartDate,
+                trialEndDate: response.trialEndDate,
+                nextBillingDate: response.nextBillingDate
+            };
 
-                /* // Caso 2: Para TESTAR o Plano FREE (Trial) ativo com 20 dias restantes:
-                resolve({
-                    id: "sub_trial",
-                    isActive: true,
-                    planType: 'trial',
-                    maxClients: 50,
-                    currentClients: 15,
-                    trialStartDate: new Date().toISOString(),
-                    trialEndDate: new Date(new Date().setDate(new Date().getDate() + 20)).toISOString(),
-                    startDate: new Date().toISOString(),
-                });
-                */
-            }, 500);
-        });
+            return subscription;
+        } catch (error) {
+            console.error('Get subscription error:', error);
+            // Retorna um plano inativo como fallback
+            return {
+                id: "sub_001",
+                isActive: false,
+                planType: 'none',
+                maxClients: 0,
+                currentClients: 0
+            };
+        }
     }
 
     async getAvailablePlans(): Promise<Plan[]> {
-        // Agora os dados vêm do "serviço" e não do componente UI
-        return [
-            {
-                id: 'trial',
-                title: 'Período de Teste',
-                price: 'Grátis',
-                desc: 'Acesso total por 30 dias',
-                icon: 'clock-outline',
-                color: '#4CAF50',
-                type: 'trial'
-            },
-            {
-                id: 'basic',
-                title: 'Plano Basic',
-                price: 'R$ 50,00/mês',
-                desc: 'Gerencie até 50 clientes',
-                icon: 'account-group-outline',
-                color: COLORS.primary,
-                type: 'paid'
-            },
-            {
-                id: 'premium',
-                title: 'Plano Premium',
-                price: 'R$ 100,00/mês',
-                desc: 'Mais de 100 clientes',
-                icon: 'crown-outline',
-                color: '#FFD700',
-                type: 'paid'
-            }
-        ];
+        try {
+            const response: PlanResponse[] = await apiClient.get('/plans');
+            
+            // Converte as respostas da API para o modelo Plan
+            const plans: Plan[] = response.map(plan => ({
+                id: plan.id,
+                title: plan.title,
+                price: plan.price,
+                desc: plan.desc,
+                icon: plan.icon,
+                color: plan.color,
+                type: plan.type as 'trial' | 'paid'
+            }));
+
+            return plans;
+        } catch (error) {
+            console.error('Get plans error:', error);
+            // Retorna planos mock como fallback
+            return [
+                {
+                    id: 'trial',
+                    title: 'Período de Teste',
+                    price: 'Grátis',
+                    desc: 'Acesso total por 30 dias',
+                    icon: 'clock-outline',
+                    color: '#4CAF50',
+                    type: 'trial'
+                },
+                {
+                    id: 'basic',
+                    title: 'Plano Basic',
+                    price: 'R$ 50,00/mês',
+                    desc: 'Gerencie até 50 clientes',
+                    icon: 'account-group-outline',
+                    color: COLORS.primary,
+                    type: 'paid'
+                },
+                {
+                    id: 'premium',
+                    title: 'Plano Premium',
+                    price: 'R$ 100,00/mês',
+                    desc: 'Mais de 100 clientes',
+                    icon: 'crown-outline',
+                    color: '#FFD700',
+                    type: 'paid'
+                }
+            ];
+        }
     }
 
     async activateTrial(): Promise<void> {
-        console.log("Trial Ativado");
+        try {
+            await apiClient.post('/subscriptions/trial', {});
+        } catch (error) {
+            console.error('Activate trial error:', error);
+            throw new Error("Não foi possível ativar o período de teste.");
+        }
     }
 
     async activateFreeTrial(): Promise<Subscription> {
-        const now = new Date();
-        const thirtyDaysLater = new Date();
-        thirtyDaysLater.setDate(now.getDate() + 30);
+        try {
+            const response: SubscriptionResponse = await apiClient.post('/subscriptions/trial', {});
+            
+            // Converte a resposta da API para o modelo Subscription
+            const subscription: Subscription = {
+                id: response.id,
+                isActive: response.isActive,
+                planType: response.planType as 'none' | 'trial' | 'basic' | 'premium',
+                maxClients: response.maxClients,
+                currentClients: response.currentClients,
+                startDate: response.startDate,
+                trialStartDate: response.trialStartDate,
+                trialEndDate: response.trialEndDate,
+                nextBillingDate: response.nextBillingDate
+            };
 
-        // Simulação de persistência ou chamada de API
-        const newTrialSub: Subscription = {
-            id: "sub_trial_" + Math.random().toString(36).substr(2, 9),
-            isActive: true, // Trial ativa-se imediatamente
-            planType: 'trial',
-            maxClients: 50,
-            currentClients: 0,
-            startDate: now.toISOString(),
-            trialStartDate: now.toISOString(),
-            trialEndDate: thirtyDaysLater.toISOString(),
-        };
-
-        // Aqui chamarias o teu serviço para guardar no Firebase/BD
-        console.log("Trial Ativado até:", thirtyDaysLater.toISOString());
-
-        return newTrialSub;
+            return subscription;
+        } catch (error) {
+            console.error('Activate free trial error:', error);
+            throw new Error("Não foi possível ativar o período de teste.");
+        }
     }
 
     async getSavedCards(): Promise<any[]> {
-        return [
-            { id: '1', brand: 'visa', last4: '4242', expiry: '12/28' }
-        ];
+        try {
+            const response: { cards: any[] } = await apiClient.get('/subscriptions/cards');
+            return response.cards || [];
+        } catch (error) {
+            console.error('Get saved cards error:', error);
+            return [];
+        }
     }
 
     async saveCard(cardData: any): Promise<void> {
-        console.log("Cartão salvo:", cardData);
+        try {
+            await apiClient.post('/subscriptions/cards', cardData);
+        } catch (error) {
+            console.error('Save card error:', error);
+            throw new Error("Não foi possível salvar o cartão.");
+        }
     }
 
     async deleteCard(cardId: string): Promise<void> {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+            await apiClient.delete(`/subscriptions/cards/${cardId}`, {});
+        } catch (error) {
+            console.error('Delete card error:', error);
+            throw new Error("Não foi possível excluir o cartão.");
+        }
     }
 
     async setDefaultCard(cardId: string): Promise<void> {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+            await apiClient.put(`/subscriptions/cards/${cardId}/default`, {});
+        } catch (error) {
+            console.error('Set default card error:', error);
+            throw new Error("Não foi possível definir o cartão como padrão.");
+        }
     }
 
     async processPaidSubscription(
@@ -117,42 +163,27 @@ export class SubscriptionRepository implements ISubscriptionRepository {
         newCardData?: { number: string, expiry: string, cvv: string }
     ): Promise<Subscription> {
         try {
-            console.log(`A processar pagamento para o plano: ${planId}`);
-
-            if (newCardData) {
-                console.log("Pagamento com novo cartão final:", newCardData.number.slice(-4));
-                // Lógica para enviar dados ao gateway (Stripe/etc)
-            }
-
-            // Simula latência de rede/banco
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            const now = new Date();
-            const nextBilling = new Date();
-            nextBilling.setMonth(now.getMonth() + 1);
-
-            // Define limites com base no plano
-            const limits = planId === 'premium' ? 500 : 100;
-
-            const updatedSub: Subscription = {
-                id: "sub_paid_" + Math.random().toString(36).substr(2, 9),
-                isActive: true,
-                planType: planId as 'basic' | 'premium',
-                maxClients: limits,
-                currentClients: 0,
-                startDate: now.toISOString(),
-                nextBillingDate: nextBilling.toISOString(),
-                // No plano pago, trialStartDate e trialEndDate podem ser null ou omitidos
-                trialStartDate: undefined,
-                trialEndDate: undefined
+            const response: SubscriptionResponse = await apiClient.post('/subscriptions/paid', {
+                planId,
+                cardData: newCardData
+            });
+            
+            // Converte a resposta da API para o modelo Subscription
+            const subscription: Subscription = {
+                id: response.id,
+                isActive: response.isActive,
+                planType: response.planType as 'none' | 'trial' | 'basic' | 'premium',
+                maxClients: response.maxClients,
+                currentClients: response.currentClients,
+                startDate: response.startDate,
+                trialStartDate: response.trialStartDate,
+                trialEndDate: response.trialEndDate,
+                nextBillingDate: response.nextBillingDate
             };
 
-            console.log("Assinatura paga processada com sucesso!");
-
-            return updatedSub;
-
+            return subscription;
         } catch (error) {
-            console.error("Erro no processamento da assinatura:", error);
+            console.error('Process paid subscription error:', error);
             throw new Error("Não foi possível processar o pagamento. Verifique os dados do cartão.");
         }
     }

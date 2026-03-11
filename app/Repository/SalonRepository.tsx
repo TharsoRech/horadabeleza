@@ -1,20 +1,43 @@
-import { Salon, MOCK_SALONS_LIST } from '../Models/Salon';
+import { Salon } from '../Models/Salon';
 import { ISalonRepository } from "@/app/Repository/Interfaces/ISalonRepository";
-import { Service, MOCK_SERVICES } from "@/app/Models/Service";
+import { Service } from "@/app/Models/Service";
 import { imageToBase64 } from "@/app/Helpers/getBase64FromAsset";
-import { MOCK_PROFESSIONALS_LIST, Professional } from "@/app/Models/Professional";
-import {MOCK_REVIEWS, Review} from "@/app/Models/Review";
+import { Professional } from "@/app/Models/Professional";
+import { Review } from "@/app/Models/Review";
+import { apiClient } from "@/app/Utils/apiClient";
+import { SalonResponse, ProfessionalResponse, ServiceResponse, ReviewResponse } from "@/app/Types/apiTypes";
 
 export class SalonRepository implements ISalonRepository {
     async getSalonById(salonId: string): Promise<Salon | null> {
-        const found = MOCK_SALONS_LIST.find(s => s.id === salonId);
+        try {
+            const response: SalonResponse = await apiClient.get(`/salons/${salonId}`);
+            
+            // Converte a resposta da API para o modelo Salon
+            const salon: Salon = {
+                id: response.id,
+                name: response.name,
+                address: response.address,
+                rating: response.rating || "0",
+                reviews: response.reviews || 0,
+                image: response.image,
+                serviceIds: response.serviceIds,
+                professionalIds: response.professionalIds,
+                whatsApp: response.whatsApp,
+                phone: response.phone,
+                description: response.description,
+                userHasVisited: response.userHasVisited || false,
+                gallery: response.gallery || [],
+                published: response.published || false,
+                isAdmin: response.isAdmin || false
+            };
 
-        if (!found) return null;
-
-        // É crucial passar pelo _attachImages para o Base64 ser gerado/recuperado
-        const processed = await this._attachImages([found]);
-        return processed[0] as Salon;
+            return salon;
+        } catch (error) {
+            console.error('Get salon error:', error);
+            return null;
+        }
     }
+
     // Cache para evitar que o Base64 seja re-gerado, prevenindo que as imagens "pisquem"
     private imageCache: Map<string, string> = new Map();
 
@@ -65,170 +88,280 @@ export class SalonRepository implements ISalonRepository {
      * Retorna apenas os serviços vinculados a um salão específico.
      */
     async getSalonServices(serviceIds: string[]): Promise<Service[]> {
-        return new Promise((resolve) => {
-            const filtered = MOCK_SERVICES.filter(s => serviceIds.includes(s.id));
-            // Simula delay de rede
-            setTimeout(() => resolve(filtered), 200);
-        });
+        try {
+            const response: ServiceResponse[] = await apiClient.get(`/salons/services/${serviceIds.join(',')}`);
+            
+            // Converte as respostas da API para o modelo Service
+            const services: Service[] = response.map(service => ({
+                id: service.id,
+                name: service.name,
+                icon: service.icon || '',
+                description: service.description,
+                subServices: service.subServices || []
+            }));
+
+            return services;
+        } catch (error) {
+            console.error('Get salon services error:', error);
+            return [];
+        }
     }
 
     /**
      * Retorna apenas os profissionais vinculados a um salão específico.
      */
     async getSalonProfessionals(professionalIds: string[]): Promise<Professional[]> {
-        const pros = MOCK_PROFESSIONALS_LIST.filter(p => professionalIds.includes(p.id));
-        return (await this._attachImages(pros)) as Professional[];
+        try {
+            const response: ProfessionalResponse[] = await apiClient.get(`/salons/professionals/${professionalIds.join(',')}`);
+            
+            // Converte as respostas da API para o modelo Professional
+            const professionals: Professional[] = response.map(prof => ({
+                id: prof.id,
+                name: prof.name,
+                specialty: prof.specialty,
+                rating: prof.rating || 0,
+                reviews: prof.reviews || 0,
+                bio: prof.bio || '',
+                image: prof.image,
+                serviceIds: prof.serviceIds,
+                availableTimes: prof.availableTimes || [],
+                cpf: prof.cpf || '',
+                isAdmin: prof.isAdmin || false
+            }));
+
+            return professionals;
+        } catch (error) {
+            console.error('Get salon professionals error:', error);
+            return [];
+        }
     }
 
     // --- MÉTODOS DE CARGA INICIAL (HOME) ---
 
     async getServices(): Promise<Service[]> {
-        return new Promise((resolve) => {
-            setTimeout(() => resolve(MOCK_SERVICES), 300);
-        });
+        try {
+            const response: ServiceResponse[] = await apiClient.get('/services');
+            
+            // Converte as respostas da API para o modelo Service
+            const services: Service[] = response.map(service => ({
+                id: service.id,
+                name: service.name,
+                icon: service.icon || '',
+                description: service.description,
+                subServices: service.subServices || []
+            }));
+
+            return services;
+        } catch (error) {
+            console.error('Get services error:', error);
+            return [];
+        }
     }
 
     async getPopularSalons(): Promise<Salon[]> {
-        // Pega os 3 primeiros para a Home
-        return (await this._attachImages(MOCK_SALONS_LIST.slice(0, 3))) as Salon[];
+        try {
+            const response: SalonResponse[] = await apiClient.get('/salons/popular');
+            
+            // Converte as respostas da API para o modelo Salon
+            const salons: Salon[] = response.map(salon => ({
+                id: salon.id,
+                name: salon.name,
+                address: salon.address,
+                rating: salon.rating || "0",
+                reviews: salon.reviews || 0,
+                image: salon.image,
+                serviceIds: salon.serviceIds,
+                professionalIds: salon.professionalIds,
+                whatsApp: salon.whatsApp,
+                phone: salon.phone,
+                description: salon.description,
+                userHasVisited: salon.userHasVisited || false,
+                gallery: salon.gallery || [],
+                published: salon.published || false,
+                isAdmin: salon.isAdmin || false
+            }));
+
+            return salons;
+        } catch (error) {
+            console.error('Get popular salons error:', error);
+            return [];
+        }
     }
 
     async getTopProfessionals(): Promise<Professional[]> {
-        // Pega os 3 primeiros para a Home
-        return (await this._attachImages(MOCK_PROFESSIONALS_LIST.slice(0, 3))) as Professional[];
+        try {
+            const response: ProfessionalResponse[] = await apiClient.get('/professionals/top');
+            
+            // Converte as respostas da API para o modelo Professional
+            const professionals: Professional[] = response.map(prof => ({
+                id: prof.id,
+                name: prof.name,
+                specialty: prof.specialty,
+                rating: prof.rating || 0,
+                reviews: prof.reviews || 0,
+                bio: prof.bio || '',
+                image: prof.image,
+                serviceIds: prof.serviceIds,
+                availableTimes: prof.availableTimes || [],
+                cpf: prof.cpf || '',
+                isAdmin: prof.isAdmin || false
+            }));
+
+            return professionals;
+        } catch (error) {
+            console.error('Get top professionals error:', error);
+            return [];
+        }
     }
 
     // --- SISTEMA DE BUSCA E PAGINAÇÃO ---
 
     async searchAll(query: string, filter: string, page: number = 1): Promise<(Salon | Professional)[]> {
-        const limit = 5;
-        const text = query.toLowerCase().trim();
+        try {
+            const limit = 5;
+            const params = new URLSearchParams({
+                query,
+                filter,
+                page: page.toString(),
+                limit: limit.toString()
+            });
 
-        // 1. Define o pool de dados baseado no filtro selecionado
-        let dataPool: (Salon | Professional)[] = [];
-        if (filter === 'Salão') {
-            dataPool = MOCK_SALONS_LIST;
-        } else if (filter === 'Pessoas') {
-            dataPool = MOCK_PROFESSIONALS_LIST;
-        } else if (filter === 'Serviço') {
-            // Se for serviço, busca em ambos os pools
-            dataPool = [...MOCK_SALONS_LIST, ...MOCK_PROFESSIONALS_LIST];
+            const response: any[] = await apiClient.get(`/search?${params.toString()}`);
+            
+            // Converte as respostas da API para os modelos Salon e Professional
+            const results: (Salon | Professional)[] = response.map(item => {
+                if (item.type === 'salon') {
+                    return {
+                        id: item.id,
+                        name: item.name,
+                        address: item.address,
+                        rating: item.rating || "0",
+                        reviews: item.reviews || 0,
+                        image: item.image,
+                        serviceIds: item.serviceIds,
+                        professionalIds: item.professionalIds,
+                        whatsApp: item.whatsApp,
+                        phone: item.phone,
+                        description: item.description,
+                        userHasVisited: item.userHasVisited || false,
+                        gallery: item.gallery || [],
+                        published: item.published || false,
+                        isAdmin: item.isAdmin || false
+                    } as Salon;
+                } else {
+                    return {
+                        id: item.id,
+                        name: item.name,
+                        specialty: item.specialty,
+                        rating: item.rating || 0,
+                        reviews: item.reviews || 0,
+                        bio: item.bio || '',
+                        image: item.image,
+                        serviceIds: item.serviceIds,
+                        availableTimes: item.availableTimes || [],
+                        cpf: item.cpf || '',
+                        isAdmin: item.isAdmin || false
+                    } as Professional;
+                }
+            });
+
+            return results;
+        } catch (error) {
+            console.error('Search error:', error);
+            return [];
         }
-
-        // 2. Filtra os dados
-        const filtered = dataPool.filter(item => {
-            // Se a query estiver vazia (caso do "Ver Todos"), retorna tudo do pool
-            if (text === "") return true;
-
-            // Se o filtro for 'Serviço', checa se o item possui o ID do serviço buscado
-            if (filter === 'Serviço') {
-                const serviceMatch = MOCK_SERVICES.find(s => s.name.toLowerCase().includes(text));
-                if (serviceMatch && item.serviceIds.includes(serviceMatch.id)) return true;
-            }
-
-            // Busca padrão por nome do salão ou profissional
-            return item.name.toLowerCase().includes(text);
-        });
-
-        // 3. Simula delay para exibição de Skeletons
-        await new Promise(resolve => setTimeout(resolve, 450));
-
-        // 4. Aplica a paginação (slice)
-        const startIndex = (page - 1) * limit;
-        const slice = filtered.slice(startIndex, startIndex + limit);
-
-        // 5. Anexa as imagens processadas
-        return await this._attachImages(slice);
     }
 
     async getSalonReviews(salonId: string): Promise<Review[]> {
-        return new Promise((resolve) => {
-            // Filtra as reviews que pertencem ao salão específico
-            const filtered = MOCK_REVIEWS.filter(r => r.salonId === salonId);
+        try {
+            const response: ReviewResponse[] = await apiClient.get(`/salons/${salonId}/reviews`);
+            
+            // Converte as respostas da API para o modelo Review
+            const reviews: Review[] = response.map(review => ({
+                id: review.id,
+                salonId: review.salonId || '',
+                professionalId: review.professionalId || '',
+                userId: review.userId,
+                userName: review.userName,
+                rating: review.rating,
+                comment: review.comment,
+                createdAt: review.createdAt
+            }));
 
-            // Simula um pequeno delay de rede
-            setTimeout(() => resolve(filtered), 300);
-        });
+            return reviews;
+        } catch (error) {
+            console.error('Get salon reviews error:', error);
+            return [];
+        }
     }
 
     async getAvailableTimes(professionalId: string, date: string): Promise<string[]> {
-        return new Promise((resolve) => {
-            const timePool = [
-                "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-                "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-                "16:00", "16:30", "17:00", "17:30", "18:00"
-            ];
-            
-            const dayOfWeek = new Date(date).getDay();
-            
-            if (dayOfWeek === 0) {
-                setTimeout(() => resolve([]), 400);
-                return;
-            }
-            
-            const filteredTimes = timePool.filter((_, index) => {
-                const seed = (professionalId.length + index + dayOfWeek);
-                return seed % 3 !== 0; 
-            });
-            
-            setTimeout(() => resolve(filteredTimes), 500);
-        });
+        try {
+            const response: { times: string[] } = await apiClient.get(`/professionals/${professionalId}/availability?date=${date}`);
+            return response.times || [];
+        } catch (error) {
+            console.error('Get available times error:', error);
+            return [];
+        }
     }
 
     async getMyUnits(): Promise<Salon[]> {
-        // Em um app real, aqui você filtraria por: 
-        // MOCK_SALONS_LIST.filter(s => s.ownerId === currentUserId)
-        const mySalons = [...MOCK_SALONS_LIST];
+        try {
+            const response: SalonResponse[] = await apiClient.get('/salons/my-units');
+            
+            // Converte as respostas da API para o modelo Salon
+            const salons: Salon[] = response.map(salon => ({
+                id: salon.id,
+                name: salon.name,
+                address: salon.address,
+                rating: salon.rating || "0",
+                reviews: salon.reviews || 0,
+                image: salon.image,
+                serviceIds: salon.serviceIds,
+                professionalIds: salon.professionalIds,
+                whatsApp: salon.whatsApp,
+                phone: salon.phone,
+                description: salon.description,
+                userHasVisited: salon.userHasVisited || false,
+                gallery: salon.gallery || [],
+                published: salon.published || false,
+                isAdmin: salon.isAdmin || false
+            }));
 
-        // Simula delay de carregamento de banco de dados
-        await new Promise(resolve => setTimeout(resolve, 600));
-
-        // Processa as imagens (Capa + Galeria)
-        return await this._attachSalonMedia(mySalons);
-    }
-
-    private async _attachSalonMedia(salons: Salon[]): Promise<Salon[]> {
-        const salonPhotos = [
-            require('@/assets/images/salon1.jpg'),
-            require('@/assets/images/salon2.jpg')
-        ];
-
-        return Promise.all(salons.map(async (salon, index) => {
-            const cacheKey = `s-full-${salon.id}`;
-
-            // 1. Processa a Imagem Principal (Capa)
-            let mainImage = salon.image;
-            if (!mainImage) {
-                const photoAsset = salonPhotos[index % salonPhotos.length];
-                mainImage = await imageToBase64(photoAsset) || undefined;
-            }
-
-            // 2. Processa a Galeria (Mock de galeria se estiver vazia)
-            // Aqui estamos simulando que cada salão tenha 2 fotos na galeria se não houver nada
-            let processedGallery = salon.gallery || [];
-            if (processedGallery.length === 0) {
-                const g1 = await imageToBase64(require('@/assets/images/salon1.jpg'));
-                const g2 = await imageToBase64(require('@/assets/images/salon2.jpg'));
-                if (g1) processedGallery.push(g1);
-                if (g2) processedGallery.push(g2);
-            }
-
-            return {
-                ...salon,
-                image: mainImage,
-                gallery: processedGallery
-            };
-        }));
+            return salons;
+        } catch (error) {
+            console.error('Get my units error:', error);
+            return [];
+        }
     }
 
     async getSalonsByProfessional(professionalId: string): Promise<Salon[]> {
-        // Aqui no futuro você faria o fetch da sua API
-        // Ex: const response = await api.get(`/professionals/${professionalId}/salons`);
-        return new Promise((resolve) => {
-            const mySalons = MOCK_SALONS_LIST.filter(s =>
-                s.professionalIds.includes(professionalId)
-            );
-            setTimeout(() => resolve(mySalons), 500); // Simula delay de rede
-        });
+        try {
+            const response: SalonResponse[] = await apiClient.get(`/professionals/${professionalId}/salons`);
+            
+            // Converte as respostas da API para o modelo Salon
+            const salons: Salon[] = response.map(salon => ({
+                id: salon.id,
+                name: salon.name,
+                address: salon.address,
+                rating: salon.rating || "0",
+                reviews: salon.reviews || 0,
+                image: salon.image,
+                serviceIds: salon.serviceIds,
+                professionalIds: salon.professionalIds,
+                whatsApp: salon.whatsApp,
+                phone: salon.phone,
+                description: salon.description,
+                userHasVisited: salon.userHasVisited || false,
+                gallery: salon.gallery || [],
+                published: salon.published || false,
+                isAdmin: salon.isAdmin || false
+            }));
+
+            return salons;
+        } catch (error) {
+            console.error('Get salons by professional error:', error);
+            return [];
+        }
     }
 }
