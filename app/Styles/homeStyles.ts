@@ -128,5 +128,29 @@ export const homeStyles = StyleSheet.create({
         borderWidth: 2,
         borderColor: COLORS.white
     },
-    badgeText: { color: COLORS.white, fontSize: 10, fontWeight: 'bold' }
+    badgeText: { color: COLORS.white, fontSize: 10, fontWeight: 'bold' },
+
+    // --- EMPTY STATES ---
+    emptyStateContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 20,
+        paddingHorizontal: 20,
+    },
+    emptyStateIcon: {
+        marginBottom: 12,
+    },
+    emptyStateText: {
+        fontSize: 16,
+        color: COLORS.textMain,
+        textAlign: 'center',
+        fontWeight: '600',
+        marginBottom: 6,
+    },
+    emptyStateSubtext: {
+        fontSize: 14,
+        color: COLORS.muted,
+        textAlign: 'center',
+        lineHeight: 18,
+    }
 });

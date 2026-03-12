@@ -242,22 +242,7 @@ export default function ProfileScreen() {
                             {imageUri ? <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%', borderRadius: 50 }} /> : <Ionicons name="person" size={50} color={COLORS.secondary} />}
                             {isEditing && <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.primary, borderRadius: 15, padding: 5 }}><Ionicons name="camera" size={16} color="#FFF" /></View>}
                         </TouchableOpacity>
-                        {!isEditing && (
-                            <View style={{ alignItems: 'center', marginTop: 10 }}>
-                                <Text style={profileStyles.userName}>{currentUser?.name}</Text>
-                                <Text style={profileStyles.userEmail}>{currentUser?.email} ({currentUser?.role})</Text>
-                                {currentUser?.doc && (
-                                    <Text style={[profileStyles.userEmail, { marginTop: 5 }]}>
-                                        CPF/CNPJ: {currentUser.doc}
-                                    </Text>
-                                )}
-                                {currentUser?.dob && (
-                                    <Text style={[profileStyles.userEmail, { marginTop: 2 }]}>
-                                        Nascimento: {currentUser.dob}
-                                    </Text>
-                                )}
-                            </View>
-                        )}
+                        )
                     </View>
 
                     <View style={profileStyles.menuContainer}>

@@ -289,15 +289,23 @@ export default function HomeScreen() {
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
                         <View style={homeStyles.sectionContainer}>
                             <Text style={homeStyles.sectionTitle}>Serviços</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={homeStyles.categoriesList}>
-                                {services.map((ser) => (
-                                    <CategoryCard
-                                        key={ser.id}
-                                        category={ser}
-                                        onPress={() => handleTriggerSearch('Serviço', ser.name)}
-                                    />
-                                ))}
-                            </ScrollView>
+                            {services.length > 0 ? (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={homeStyles.categoriesList}>
+                                    {services.map((ser) => (
+                                        <CategoryCard
+                                            key={ser.id}
+                                            category={ser}
+                                            onPress={() => handleTriggerSearch('Serviço', ser.name)}
+                                        />
+                                    ))}
+                                </ScrollView>
+                            ) : (
+                                <View style={homeStyles.emptyStateContainer}>
+                                    <Ionicons name="construct-outline" size={48} color={COLORS.muted} style={homeStyles.emptyStateIcon} />
+                                    <Text style={homeStyles.emptyStateText}>Nenhum serviço encontrado no momento.</Text>
+                                    <Text style={homeStyles.emptyStateSubtext}>Estamos trabalhando para trazer mais opções para você!</Text>
+                                </View>
+                            )}
                         </View>
 
                         <View style={homeStyles.sectionContainer}>
@@ -307,15 +315,23 @@ export default function HomeScreen() {
                                     <Text style={homeStyles.seeAllText}>Ver todos</Text>
                                 </TouchableOpacity>
                             </View>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={homeStyles.salonsScrollContainer} snapToInterval={266} decelerationRate="fast">
-                                {salons.map((salon) => (
-                                    <SalonCard
-                                        key={salon.id}
-                                        salon={salon}
-                                        onPress={handleOpenSalonDetails}
-                                    />
-                                ))}
-                            </ScrollView>
+                            {salons.length > 0 ? (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={homeStyles.salonsScrollContainer} snapToInterval={266} decelerationRate="fast">
+                                    {salons.map((salon) => (
+                                        <SalonCard
+                                            key={salon.id}
+                                            salon={salon}
+                                            onPress={handleOpenSalonDetails}
+                                        />
+                                    ))}
+                                </ScrollView>
+                            ) : (
+                                <View style={homeStyles.emptyStateContainer}>
+                                    <Ionicons name="business-outline" size={48} color={COLORS.muted} style={homeStyles.emptyStateIcon} />
+                                    <Text style={homeStyles.emptyStateText}>Nenhum salão encontrado no momento.</Text>
+                                    <Text style={homeStyles.emptyStateSubtext}>Estamos trabalhando para trazer mais opções para você!</Text>
+                                </View>
+                            )}
                         </View>
 
                         <View style={[homeStyles.sectionContainer, { marginTop: 20 }]}>
@@ -325,15 +341,23 @@ export default function HomeScreen() {
                                     <Text style={homeStyles.seeAllText}>Ver todos</Text>
                                 </TouchableOpacity>
                             </View>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingLeft: 20, paddingTop: 10 }}>
-                                {professionals.map((prof) => (
-                                    <ProfessionalCard
-                                        key={prof.id}
-                                        professional={prof}
-                                        onPress={() => handleOpenProfessionalDetails(prof)}
-                                    />
-                                ))}
-                            </ScrollView>
+                            {professionals.length > 0 ? (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingLeft: 20, paddingTop: 10 }}>
+                                    {professionals.map((prof) => (
+                                        <ProfessionalCard
+                                            key={prof.id}
+                                            professional={prof}
+                                            onPress={() => handleOpenProfessionalDetails(prof)}
+                                        />
+                                    ))}
+                                </ScrollView>
+                            ) : (
+                                <View style={homeStyles.emptyStateContainer}>
+                                    <Ionicons name="people-outline" size={48} color={COLORS.muted} style={homeStyles.emptyStateIcon} />
+                                    <Text style={homeStyles.emptyStateText}>Nenhum profissional encontrado no momento.</Text>
+                                    <Text style={homeStyles.emptyStateSubtext}>Estamos trabalhando para trazer mais opções para você!</Text>
+                                </View>
+                            )}
                         </View>
                     </ScrollView>
                 )
