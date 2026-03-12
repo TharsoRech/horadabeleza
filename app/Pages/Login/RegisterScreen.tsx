@@ -23,6 +23,7 @@ export default function RegisterScreen() {
     // States
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [doc, setDoc] = useState('');
     const [birthDate, setBirthDate] = useState('');
     const [password, setPassword] = useState('');
@@ -38,11 +39,13 @@ export default function RegisterScreen() {
     const isEmailValid = (ev: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ev);
     const isDocValid = doc.replace(/\D/g, "").length >= 11;
     const isPasswordStrong = password.length >= 6;
+    const isPhoneValid = phone.replace(/\D/g, "").length >= 10;
 
     const isFormValid =
         name.trim().length > 3 &&
         isEmailValid(email) &&
         isDocValid &&
+        isPhoneValid &&
         birthDate.length === 10 &&
         isPasswordStrong;
 
@@ -69,14 +72,31 @@ export default function RegisterScreen() {
 
         setLoading(true);
         try {
+            // Converte a data para o formato que o backend pode estar esperando (YYYY-MM-DD)
+            const [day, month, year] = birthDate.split('/');
+            const dobFormatted = `${year}-${month}-${day}`;
+
+            // Validação extra para garantir que a data seja válida para o SQL Server
+            const birthDateObj = new Date(dobFormatted);
+            const minDate = new Date('1753-01-01');
+            const maxDate = new Date('9999-12-31');
+            
+            if (birthDateObj < minDate || birthDateObj > maxDate) {
+                Alert.alert("Erro", "Data de nascimento inválida. Por favor, insira uma data entre 01/01/1753 e 31/12/9999.");
+                setLoading(false);
+                return;
+            }
+
             // Chamando o register do Manager passando os dados planos
             await register({
                 name,
                 email: email.toLowerCase().trim(),
                 password,
                 role,
+                phone: phone.replace(/\D/g, ""), // Envia o telefone limpo (apenas números)
                 base64Image,
                 doc: doc.replace(/\D/g, ""), // Envia o CPF/CNPJ limpo (apenas números)
+                dob: dobFormatted, // Envia a data no formato YYYY-MM-DD
             });
         } catch (error: any) {
             console.error("Erro ao registrar:", error);
@@ -175,6 +195,15 @@ export default function RegisterScreen() {
                             autoCapitalize="none"
                             value={email}
                             onChangeText={setEmail}
+                        />
+
+                        <TextInput
+                            placeholder="Telefone (ex: 11987654321)"
+                            placeholderTextColor="rgba(255, 255, 255, 0.7)"
+                            style={[authStyles.input, { marginBottom: 10 }]}
+                            keyboardType="phone-pad"
+                            value={phone}
+                            onChangeText={setPhone}
                         />
 
                         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>

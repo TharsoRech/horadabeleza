@@ -15,6 +15,7 @@ export class UserProfile {
     role?: UserRole;
     base64Image?: string;
     doc?: string;
+    phone?: string;
     photoUrl?: string;
 
     constructor(data: Partial<UserProfile> = {}) {
@@ -27,6 +28,7 @@ export class UserProfile {
         this.role = data.role;
         this.base64Image = data.base64Image;
         this.doc = data.doc;
+        this.phone = data.phone;
         this.photoUrl = data.photoUrl;
     }
 

@@ -23,6 +23,8 @@ export default function EditProfileScreen() {
     // Estados dos campos do UserProfile
     const [name, setName] = useState(currentUser?.name || '');
     const [email, setEmail] = useState(currentUser?.email || '');
+    const [phone, setPhone] = useState(currentUser?.phone || '');
+    const [doc, setDoc] = useState(currentUser?.doc || '');
     const [dob, setDob] = useState(currentUser?.dob || '');
     const [country, setCountry] = useState(currentUser?.country || 'Brasil');
     const [imageUri, setImageUri] = useState<string | null>(
@@ -56,12 +58,26 @@ export default function EditProfileScreen() {
             return;
         }
 
+        // Validação extra para garantir que a data seja válida para o SQL Server
+        if (dob) {
+            const birthDateObj = new Date(dob);
+            const minDate = new Date('1753-01-01');
+            const maxDate = new Date('9999-12-31');
+            
+            if (birthDateObj < minDate || birthDateObj > maxDate) {
+                Alert.alert("Erro", "Data de nascimento inválida. Por favor, insira uma data entre 01/01/1753 e 31/12/9999.");
+                return;
+            }
+        }
+
         setIsSaving(true);
         try {
             const updatedUser = new UserProfile({
                 ...currentUser,
                 name,
                 email,
+                phone,
+                doc,
                 dob,
                 country,
                 base64Image,
@@ -135,6 +151,8 @@ export default function EditProfileScreen() {
                     <View style={{ gap: 15 }}>
                         <InputLabel label="Nome Completo" value={name} onChange={setName} />
                         <InputLabel label="E-mail" value={email} onChange={setEmail} keyboardType="email-address" />
+                        <InputLabel label="Telefone" value={phone} onChange={setPhone} keyboardType="phone-pad" />
+                        <InputLabel label="CPF/CNPJ" value={doc} onChange={setDoc} keyboardType="numeric" />
 
                         <View style={{ flexDirection: 'row', gap: 10 }}>
                             <View style={{ flex: 1 }}>

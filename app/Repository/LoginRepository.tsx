@@ -53,23 +53,25 @@ export class LoginRepository implements ILoginRepository {
     async register(userData: Partial<UserProfile>): Promise<UserProfile> {
         try {
             // Mapeia os tipos de usuário para os valores esperados pelo backend
+            // Backend: Client = 1, Professional = 2
             const userTypeMap: Record<UserRole, number> = {
-                [UserRole.CLIENT]: 1,
-                [UserRole.PROFISSIONAL]: 2
+                [UserRole.CLIENT]: 0,
+                [UserRole.PROFISSIONAL]: 1
             };
 
             const userType = userTypeMap[userData.role || UserRole.CLIENT];
-
+            
             const registerData = {
                 Name: userData.name || '',
                 Email: userData.email || '',
                 Password: userData.password || '',
-                Role: userType.toString(),
+                Type: userType, // Envia como número, não string
+                Phone: userData.phone,
                 Doc: userData.doc,
                 Dob: userData.dob,
                 Base64Image: userData.base64Image
             };
-
+            
             const response: LoginResponse = await apiClient.post('/auth/register', registerData);
 
             // Se o registro for bem-sucedido, faz login automático
