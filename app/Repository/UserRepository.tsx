@@ -11,7 +11,8 @@ export class UserRepository implements IUserRepository {
                 email: user.email,
                 role: user.role,
                 dob: user.dob,
-                country: user.country
+                country: user.country,
+                base64Image: user.base64Image
             });
             return true;
         } catch (error) {

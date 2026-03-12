@@ -13,6 +13,7 @@ import { authStyles } from "@/app/Styles/authStyles";
 import { useAuth } from '../../Managers/AuthManager';
 import { UserProfile, UserRole } from '../../Models/UserProfile';
 import { formatDate, formatDoc } from "@/app/Helpers/FormatStrings";
+import CustomAlert from '../../Components/CustomAlert';
 
 export default function RegisterScreen() {
     const insets = useSafeAreaInsets();
@@ -29,6 +30,9 @@ export default function RegisterScreen() {
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [base64Image, setBase64Image] = useState<string | undefined>(undefined);
     const [loading, setLoading] = useState(false);
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState('');
+    const [alertMessage, setAlertMessage] = useState('');
 
     // Validações originais
     const isEmailValid = (ev: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ev);
@@ -69,14 +73,16 @@ export default function RegisterScreen() {
             await register({
                 name,
                 email: email.toLowerCase().trim(),
-                dob: birthDate,
+                password,
                 role,
-                country: 'Brasil',
                 base64Image,
+                doc: doc.replace(/\D/g, ""), // Envia o CPF/CNPJ limpo (apenas números)
             });
         } catch (error: any) {
             console.error("Erro ao registrar:", error);
-            Alert.alert("Erro", error.message || "Falha ao criar conta.");
+            setAlertTitle("Ops!");
+            setAlertMessage(error.message || "Não foi possível registrar. Por favor, tente novamente.");
+            setAlertVisible(true);
         } finally {
             setLoading(false);
         }
@@ -216,6 +222,14 @@ export default function RegisterScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* Custom Alert */}
+            <CustomAlert
+                visible={alertVisible}
+                title={alertTitle}
+                message={alertMessage}
+                onConfirm={() => setAlertVisible(false)}
+            />
         </View>
     );
 }

@@ -11,6 +11,7 @@ export interface LoginResponse {
     dob?: string;
     country?: string;
     token: string;
+    base64Image?: string;
 }
 
 export interface RegisterRequest {
@@ -18,8 +19,9 @@ export interface RegisterRequest {
     email: string;
     password: string;
     role: string;
+    doc?: string;
     dob?: string;
-    country?: string;
+    base64Image?: string;
 }
 
 // Tipos de agendamentos

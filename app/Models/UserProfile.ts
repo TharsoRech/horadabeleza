@@ -14,6 +14,8 @@ export class UserProfile {
     country?: string;
     role?: UserRole;
     base64Image?: string;
+    doc?: string;
+    photoUrl?: string;
 
     constructor(data: Partial<UserProfile> = {}) {
         this.id = data.id || Crypto.randomUUID();
@@ -24,6 +26,8 @@ export class UserProfile {
         this.country = data.country;
         this.role = data.role;
         this.base64Image = data.base64Image;
+        this.doc = data.doc;
+        this.photoUrl = data.photoUrl;
     }
 
     static mock(): UserProfile {

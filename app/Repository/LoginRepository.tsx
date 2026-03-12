@@ -29,7 +29,8 @@ export class LoginRepository implements ILoginRepository {
                 email: response.email,
                 role: response.role as UserRole || UserRole.CLIENT,
                 dob: response.dob || '',
-                country: response.country || 'Brasil'
+                country: response.country || 'Brasil',
+                base64Image: response.base64Image || ''
             });
         } catch (error) {
             console.error('Login error:', error);
@@ -51,13 +52,22 @@ export class LoginRepository implements ILoginRepository {
 
     async register(userData: Partial<UserProfile>): Promise<UserProfile> {
         try {
-            const registerData: RegisterRequest = {
-                name: userData.name || '',
-                email: userData.email || '',
-                password: userData.password || '',
-                role: userData.role || UserRole.CLIENT,
-                dob: userData.dob,
-                country: userData.country || 'Brasil'
+            // Mapeia os tipos de usuário para os valores esperados pelo backend
+            const userTypeMap: Record<UserRole, number> = {
+                [UserRole.CLIENT]: 1,
+                [UserRole.PROFISSIONAL]: 2
+            };
+
+            const userType = userTypeMap[userData.role || UserRole.CLIENT];
+
+            const registerData = {
+                Name: userData.name || '',
+                Email: userData.email || '',
+                Password: userData.password || '',
+                Role: userType.toString(),
+                Doc: userData.doc,
+                Dob: userData.dob,
+                Base64Image: userData.base64Image
             };
 
             const response: LoginResponse = await apiClient.post('/auth/register', registerData);
@@ -73,11 +83,36 @@ export class LoginRepository implements ILoginRepository {
                 email: response.email,
                 role: response.role as UserRole || UserRole.CLIENT,
                 dob: response.dob || '',
-                country: response.country || 'Brasil'
+                country: response.country || 'Brasil',
+                base64Image: response.base64Image || ''
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Register error:', error);
-            throw new Error("Este e-mail já está em uso.");
+            console.error('Register error details:', error.response?.data || error.data);
+            console.error('Register error status:', error.status);
+            console.error('Register error config:', error.config);
+            
+            // Melhora a mensagem de erro baseada na resposta do backend
+            if (error.message && error.message.includes('Email address is already registered')) {
+                throw new Error("Este e-mail já está em uso.");
+            } else if (error.response?.data?.error) {
+                // Retorna o erro exato do backend
+                throw new Error(error.response.data.error);
+            } else if (error.response?.data?.message) {
+                // Retorna a mensagem exata do backend
+                throw new Error(error.response.data.message);
+            } else if (error.response?.data?.errors) {
+                // Retorna os erros de validação do backend
+                const errors = error.response.data.errors;
+                const errorMessages = Array.isArray(errors) ? errors.join('\n') : errors;
+                throw new Error(errorMessages);
+            } else if (error.message) {
+                throw new Error(error.message);
+            } else if (error.status === 400) {
+                throw new Error("Verifique os dados informados e tente novamente.");
+            } else {
+                throw new Error("Não foi possível registrar. Por favor, tente novamente.");
+            }
         }
     }
 }

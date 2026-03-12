@@ -246,6 +246,16 @@ export default function ProfileScreen() {
                             <View style={{ alignItems: 'center', marginTop: 10 }}>
                                 <Text style={profileStyles.userName}>{currentUser?.name}</Text>
                                 <Text style={profileStyles.userEmail}>{currentUser?.email} ({currentUser?.role})</Text>
+                                {currentUser?.doc && (
+                                    <Text style={[profileStyles.userEmail, { marginTop: 5 }]}>
+                                        CPF/CNPJ: {currentUser.doc}
+                                    </Text>
+                                )}
+                                {currentUser?.dob && (
+                                    <Text style={[profileStyles.userEmail, { marginTop: 2 }]}>
+                                        Nascimento: {currentUser.dob}
+                                    </Text>
+                                )}
                             </View>
                         )}
                     </View>
