@@ -1,7 +1,7 @@
 import {UserProfile, UserRole} from "@/app/Models/UserProfile";
 import { apiClient } from "@/app/Utils/apiClient";
 import { API_CONFIG } from "@/app/Config/apiConfig";
-import { LoginResponse, RegisterRequest } from "@/app/Types/apiTypes";
+import { LoginResponse } from "@/app/Types/apiTypes";
 
 export interface ILoginRepository {
     login(email: string, pass: string): Promise<UserProfile>;
@@ -108,12 +108,27 @@ export class LoginRepository implements ILoginRepository {
                 const errors = error.response.data.errors;
                 const errorMessages = Array.isArray(errors) ? errors.join('\n') : errors;
                 throw new Error(errorMessages);
+            } else if (error.response?.data?.title) {
+                // Retorna o título do erro do backend (padrão .NET)
+                throw new Error(error.response.data.title);
+            } else if (error.response?.data?.detail) {
+                // Retorna o detalhe do erro do backend (padrão .NET)
+                throw new Error(error.response.data.detail);
+            } else if (error.response?.data?.cpfAlreadyExists) {
+                // Erro específico para CPF duplicado
+                throw new Error("Já existe um usuário cadastrado com este CPF/CNPJ.");
             } else if (error.message) {
                 throw new Error(error.message);
             } else if (error.status === 400) {
                 throw new Error("Verifique os dados informados e tente novamente.");
+            } else if (error.status === 409) {
+                throw new Error("Conflito: Este recurso já existe.");
+            } else if (error.status === 500) {
+                // Mostra o erro 500 exatamente como vem do backend
+                const errorMessage = error.response?.data?.message || error.response?.data?.error || "Erro interno do servidor";
+                throw new Error(`Erro ${error.status}: ${errorMessage}`);
             } else {
-                throw new Error("Não foi possível registrar. Por favor, tente novamente.");
+                throw new Error(`Erro ${error.status || 'desconhecido'}: ${error.message || "Não foi possível registrar. Por favor, tente novamente."}`);
             }
         }
     }

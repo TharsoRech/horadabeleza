@@ -160,5 +160,11 @@ export const authStyles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.3)',
         marginBottom: 5,
+    },
+    validationText: {
+        fontSize: 12,
+        marginTop: 4,
+        fontWeight: '600',
+        textAlign: 'left',
     }
 });
