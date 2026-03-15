@@ -110,7 +110,7 @@ export interface SubServiceResponse {
 export interface CategoryResponse {
     id: string;
     name: string;
-    description: string;
+    iconUrl: string;
 }
 
 // Tipos de avaliações

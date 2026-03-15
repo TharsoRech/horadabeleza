@@ -6,7 +6,7 @@ import {Review} from "@/app/Models/Review";
 
 export interface ISalonRepository {
     getPopularSalons(): Promise<Salon[]>;
-    getServices(): Promise<Category[]>;
+    getCategories(): Promise<Category[]>;
     getTopProfessionals(): Promise<Professional[]>
     getSalonServices(serviceIds: string[]): Promise<Service[]>
     getSalonProfessionals(professionalIds: string[]): Promise<Professional[]>

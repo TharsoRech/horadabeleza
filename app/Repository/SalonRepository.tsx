@@ -1,11 +1,18 @@
-import { Salon } from '../Models/Salon';
-import { ISalonRepository } from "@/app/Repository/Interfaces/ISalonRepository";
-import { Service } from "@/app/Models/Service";
-import { imageToBase64 } from "@/app/Helpers/getBase64FromAsset";
-import { Professional } from "@/app/Models/Professional";
-import { Review } from "@/app/Models/Review";
-import { apiClient } from "@/app/Utils/apiClient";
-import { SalonResponse, ProfessionalResponse, ServiceResponse, ReviewResponse } from "@/app/Types/apiTypes";
+import {Salon} from '../Models/Salon';
+import {ISalonRepository} from "@/app/Repository/Interfaces/ISalonRepository";
+import {Service} from "@/app/Models/Service";
+import {Category} from "@/app/Models/Category";
+import {imageToBase64} from "@/app/Helpers/getBase64FromAsset";
+import {Professional} from "@/app/Models/Professional";
+import {Review} from "@/app/Models/Review";
+import {apiClient} from "@/app/Utils/apiClient";
+import {
+    CategoryResponse,
+    ProfessionalResponse,
+    ReviewResponse,
+    SalonResponse,
+    ServiceResponse
+} from "@/app/Types/apiTypes";
 
 export class SalonRepository implements ISalonRepository {
     async getSalonById(salonId: string): Promise<Salon | null> {
@@ -138,22 +145,33 @@ export class SalonRepository implements ISalonRepository {
 
     // --- MÉTODOS DE CARGA INICIAL (HOME) ---
 
-    async getServices(): Promise<Service[]> {
+    async getCategories(): Promise<Category[]> {
         try {
-            const response: ServiceResponse[] = await apiClient.get('/services');
+            console.log('🔍 Starting SalonRepository.getServices call...');
+            console.log('📡 API Base URL:', 'http://localhost:5000/api');
+            console.log('📡 Full URL:', 'http://localhost:5000/api/categories');
             
-            // Converte as respostas da API para o modelo Service
-            const services: Service[] = response.map(service => ({
-                id: service.id,
-                name: service.name,
-                icon: service.icon || '',
-                description: service.description,
-                subServices: service.subServices || []
+            const response: CategoryResponse[] = await apiClient.get('/categories');
+            
+            console.log('✅ SalonRepository.getServices response received:', response);
+            console.log('📊 Response length:', response.length);
+            
+            // Converte as respostas da API para o modelo Category
+            const categories: Category[] = response.map(category => ({
+                id: category.id,
+                name: category.name,
+                icon: category.iconUrl || '',
             }));
 
-            return services;
+            console.log('✅ Categories converted successfully:', categories);
+            return categories;
         } catch (error) {
-            console.error('Get services error:', error);
+            console.error('❌ Get services error:', error);
+            console.error('❌ Error details:', {
+                message: error instanceof Error ? error.message : 'Unknown error',
+                status: error instanceof Error && 'status' in error ? error.status : 'Unknown',
+                stack: error instanceof Error ? error.stack : 'No stack trace'
+            });
             return [];
         }
     }
@@ -163,7 +181,7 @@ export class SalonRepository implements ISalonRepository {
             const response: SalonResponse[] = await apiClient.get('/salons/popular');
             
             // Converte as respostas da API para o modelo Salon
-            const salons: Salon[] = response.map(salon => ({
+            return response.map(salon => ({
                 id: salon.id,
                 name: salon.name,
                 address: salon.address,
@@ -180,8 +198,6 @@ export class SalonRepository implements ISalonRepository {
                 published: salon.published || false,
                 isAdmin: salon.isAdmin || false
             }));
-
-            return salons;
         } catch (error) {
             console.error('Get popular salons error:', error);
             return [];

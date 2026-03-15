@@ -24,6 +24,12 @@ export class ApiClient {
             ...headers
         };
 
+        console.log('📡 API GET Request:', {
+            url,
+            headers: requestHeaders,
+            timeout: this.timeout
+        });
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
@@ -36,14 +42,33 @@ export class ApiClient {
 
             clearTimeout(timeoutId);
 
+            console.log('📡 API GET Response:', {
+                status: response.status,
+                ok: response.ok,
+                url: response.url
+            });
+
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error('❌ API GET HTTP Error:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorText: errorText
+                });
+                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
             }
 
-            return await response.json();
+            const data = await response.json();
+            console.log('✅ API GET Success:', {
+                dataLength: Array.isArray(data) ? data.length : 'N/A',
+                dataType: typeof data,
+                dataSample: Array.isArray(data) ? data.slice(0, 2) : data
+            });
+
+            return data;
         } catch (error) {
             clearTimeout(timeoutId);
-            console.error('API GET error:', error);
+            console.error('❌ API GET error:', error);
             throw error;
         }
     }

@@ -8,7 +8,14 @@ export class ServicesRepository implements IServicesRepository {
 
     async GetServices(): Promise<Service[]> {
         try {
-            const response: ServiceResponse[] = await apiClient.get('/services');
+            console.log('🔍 Starting GetServices call...');
+            console.log('📡 API Base URL:', 'http://localhost:5000/api');
+            console.log('📡 Full URL:', 'http://localhost:5000/api/categories');
+            
+            const response: ServiceResponse[] = await apiClient.get('/categories');
+            
+            console.log('✅ GetServices response received:', response);
+            console.log('📊 Response length:', response.length);
             
             // Converte as respostas da API para o modelo Service
             const services: Service[] = response.map(service => ({
@@ -19,9 +26,15 @@ export class ServicesRepository implements IServicesRepository {
                 subServices: service.subServices || []
             }));
 
+            console.log('✅ Services converted successfully:', services);
             return services;
         } catch (error) {
-            console.error('Get services error:', error);
+            console.error('❌ Get services error:', error);
+            console.error('❌ Error details:', {
+                message: error instanceof Error ? error.message : 'Unknown error',
+                status: error instanceof Error && 'status' in error ? error.status : 'Unknown',
+                stack: error instanceof Error ? error.stack : 'No stack trace'
+            });
             return [];
         }
     }

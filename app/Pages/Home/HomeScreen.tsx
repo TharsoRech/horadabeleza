@@ -25,9 +25,9 @@ import { SalonRepository } from '@/app/Repository/SalonRepository';
 import { INotificationRepository } from "@/app/Repository/Interfaces/INotificationRepository";
 import { NotificationRepository } from "@/app/Repository/NotificationRepository";
 import { Salon } from '@/app/Models/Salon';
-import { Service } from "@/app/Models/Service";
 import { Notification } from "@/app/Models/Notification";
 import { Professional } from "@/app/Models/Professional";
+import { Category } from "@/app/Models/Category";
 
 import { useAuth } from '@/app/Managers/AuthManager';
 
@@ -43,7 +43,7 @@ export default function HomeScreen() {
 
     // Estados de Dados Iniciais
     const [salons, setSalons] = useState<Salon[]>([]);
-    const [services, setServices] = useState<Service[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [professionals, setProfessionals] = useState<Professional[]>([]);
     const [loading, setLoading] = useState(true);
@@ -84,14 +84,14 @@ export default function HomeScreen() {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [salonsData, servicesData, notificationsData, professionalsData] = await Promise.all([
+            const [salonsData, categoriesData, notificationsData, professionalsData] = await Promise.all([
                 salonRepository.getPopularSalons(),
-                salonRepository.getServices(),
+                salonRepository.getCategories(),
                 notificationRepository.getNotifications(),
                 salonRepository.getTopProfessionals()
             ]);
             setSalons(salonsData);
-            setServices(servicesData);
+            setCategories(categoriesData);
             setNotifications(notificationsData);
             setProfessionals(professionalsData);
         } catch (error) {
@@ -289,13 +289,13 @@ export default function HomeScreen() {
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
                         <View style={homeStyles.sectionContainer}>
                             <Text style={homeStyles.sectionTitle}>Serviços</Text>
-                            {services.length > 0 ? (
+                            {categories.length > 0 ? (
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={homeStyles.categoriesList}>
-                                    {services.map((ser) => (
+                                    {categories.map((category) => (
                                         <CategoryCard
-                                            key={ser.id}
-                                            category={ser}
-                                            onPress={() => handleTriggerSearch('Serviço', ser.name)}
+                                            key={category.id}
+                                            category={category}
+                                            onPress={() => handleTriggerSearch('Serviço', category.name)}
                                         />
                                     ))}
                                 </ScrollView>
