@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -286,7 +286,18 @@ export default function HomeScreen() {
                 loading ? (
                     <HomeSkeleton />
                 ) : (
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+                    <ScrollView 
+                        showsVerticalScrollIndicator={false} 
+                        contentContainerStyle={{ paddingBottom: 30 }}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={loading}
+                                onRefresh={loadData}
+                                tintColor={COLORS.primary}
+                                colors={[COLORS.primary]}
+                            />
+                        }
+                    >
                         <View style={homeStyles.sectionContainer}>
                             <Text style={homeStyles.sectionTitle}>Serviços</Text>
                             {categories.length > 0 ? (
