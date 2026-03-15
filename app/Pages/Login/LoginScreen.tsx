@@ -19,6 +19,7 @@ import { authStyles } from "@/app/Styles/authStyles";
 
 // Logic & Models
 import { useAuth } from '../../Managers/AuthManager';
+import CustomAlert from '@/app/Components/CustomAlert';
 
 export default function LoginScreen() {
     const insets = useSafeAreaInsets();
@@ -30,11 +31,16 @@ export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showAlert, setShowAlert] = useState(false);
+    const [alertTitle, setAlertTitle] = useState('');
+    const [alertMessage, setAlertMessage] = useState('');
 
     // Função de Login conectada ao Repository via Manager
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert("Erro", "Por favor, preencha todos os campos.");
+            setAlertTitle("Campos obrigatórios");
+            setAlertMessage("Por favor, preencha e-mail e senha.");
+            setShowAlert(true);
             return;
         }
 
@@ -44,7 +50,9 @@ export default function LoginScreen() {
             await login(email, password);
             // O redirecionamento acontece automaticamente pelo estado global de Auth
         } catch (error: any) {
-            Alert.alert("Falha no Login", error.message || "E-mail ou senha incorretos.");
+            setAlertTitle("Falha no Login");
+            setAlertMessage(error.message || "E-mail ou senha incorretos.");
+            setShowAlert(true);
         } finally {
             setIsLoading(false);
         }
@@ -145,6 +153,14 @@ export default function LoginScreen() {
                                 <Text style={authStyles.signUpText}>Entrar</Text>
                             )}
                         </TouchableOpacity>
+
+                        {/* Custom Alert */}
+                        <CustomAlert
+                            visible={showAlert}
+                            title={alertTitle}
+                            message={alertMessage}
+                            onConfirm={() => setShowAlert(false)}
+                        />
 
                         {/* Navigation Links */}
                         <TouchableOpacity
