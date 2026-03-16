@@ -18,6 +18,12 @@ export const homeStyles = StyleSheet.create({
         lineHeight: 28, // Melhora a leitura se houver quebra de linha
     },
     subTitle: { fontSize: 14, color: COLORS.textSub },
+    locationText: {
+        fontSize: 12,
+        color: COLORS.secondary,
+        marginTop: 2,
+        fontStyle: 'italic',
+    },
     profileBadge: {
         padding: 10,
         backgroundColor: COLORS.white,

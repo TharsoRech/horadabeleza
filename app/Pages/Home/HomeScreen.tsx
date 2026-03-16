@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 
 // Styled Tokens & Styles
 import { homeStyles } from "@/app/Styles/homeStyles";
@@ -49,6 +50,13 @@ export default function HomeScreen() {
     const [loading, setLoading] = useState(true);
     const [notifVisible, setNotifVisible] = useState(false);
 
+    // Estados de Localização
+    
+    
+    const [userLocation, setUserLocation] = useState<{ city: string; state: string; latitude: number; longitude: number } | null>(null);
+    const [locationLoading, setLocationLoading] = useState(false);
+    const [locationError, setLocationError] = useState<string | null>(null);
+
     // Estados de Busca e Paginação
     const [searchText, setSearchText] = useState("");
     const [isSearching, setIsSearching] = useState(false);
@@ -81,14 +89,69 @@ export default function HomeScreen() {
         setProfModalVisible(true);
     };
 
+    const requestLocationPermission = useCallback(async () => {
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                setLocationError('Precisamos da sua localização para mostrar os melhores resultados próximos a você. Por favor, permita o acesso à localização nas configurações do app.');
+                return false;
+            }
+            setLocationError(null);
+            return true;
+        } catch (error) {
+            console.error('Erro ao solicitar permissão de localização:', error);
+            setLocationError('Ocorreu um erro ao solicitar permissão de localização. Por favor, tente novamente.');
+            return false;
+        }
+    }, []);
+
+    const getCurrentLocation = useCallback(async () => {
+        setLocationLoading(true);
+        try {
+            const hasPermission = await requestLocationPermission();
+            if (!hasPermission) {
+                setLocationLoading(false);
+                return;
+            }
+
+            const location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.BestForNavigation,
+            });
+
+            const { latitude, longitude } = location.coords;
+
+            // Obtém o nome da cidade e estado usando reverse geocoding
+            const reverseGeocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+            const city = reverseGeocode[0]?.city || reverseGeocode[0]?.region || ''; // Fallback
+            const state = reverseGeocode[0]?.region || ''; // Estado
+
+            setUserLocation({ city, state, latitude, longitude });
+        } catch (error) {
+            console.error('Erro ao obter localização:', error);
+            setLocationError('Ocorreu um erro ao obter sua localização. Por favor, tente novamente.');
+        } finally {
+            setLocationLoading(false);
+        }
+    }, [requestLocationPermission]);
+
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
+            // Primeiro, obtenha a localização do usuário
+            if (!userLocation) {
+                await getCurrentLocation();
+            }
+
+            // Agora, carregue os dados usando a localização
             const [salonsData, categoriesData, notificationsData, professionalsData] = await Promise.all([
-                salonRepository.getPopularSalons(),
+                userLocation ? 
+                    salonRepository.getTopSalonsByLocation(userLocation.city, userLocation.state, userLocation.latitude, userLocation.longitude) :
+                    salonRepository.getPopularSalons(),
                 salonRepository.getCategories(),
                 notificationRepository.getNotifications(),
-                salonRepository.getTopProfessionals()
+                userLocation ? 
+                    salonRepository.getTopProfessionalsByLocation(userLocation.city, userLocation.state, userLocation.latitude, userLocation.longitude) :
+                    salonRepository.getTopProfessionals()
             ]);
             setSalons(salonsData);
             setCategories(categoriesData);
@@ -99,7 +162,7 @@ export default function HomeScreen() {
         } finally {
             setLoading(false);
         }
-    }, [salonRepository, notificationRepository]);
+    }, [salonRepository, notificationRepository, userLocation, getCurrentLocation]);
 
     useEffect(() => {
         loadData();
@@ -196,6 +259,23 @@ export default function HomeScreen() {
                             Olá, {displayName}!
                         </Text>
                         <Text style={homeStyles.subTitle}>Encontre seu serviço de hoje</Text>
+            {userLocation ? (
+                <Text style={homeStyles.locationText}>
+                    Localização: {userLocation.city}, {userLocation.state}
+                </Text>
+            ) : locationError ? (
+                <Text style={[homeStyles.locationText, { color: '#D63484' }]}>
+                    {locationError}
+                </Text>
+            ) : locationLoading ? (
+                <Text style={homeStyles.locationText}>
+                    Obtendo localização...
+                </Text>
+            ) : (
+                <Text style={[homeStyles.locationText, { color: '#D63484' }]}>
+                    Localização não disponível. Por favor, permita o acesso à localização nas configurações do app.
+                </Text>
+            )}
                     </View>
 
                     <TouchableOpacity style={homeStyles.profileBadge} onPress={() => setNotifVisible(true)}>

@@ -16,4 +16,6 @@ export interface ISalonRepository {
     searchAll(query: string, filter: string, page: number): Promise<(Salon | Professional)[]>;
     getMyUnits(): Promise<Salon[]>;
     getSalonsByProfessional(professionalId: string): Promise<Salon[]>;
+    getTopProfessionalsByLocation(city: string,state: string, latitude: number, longitude: number): Promise<Professional[]>;
+    getTopSalonsByLocation(city: string,state: string, latitude: number, longitude: number): Promise<Salon[]>;
 }

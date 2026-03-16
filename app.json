@@ -14,7 +14,9 @@
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
           "whatsapp"
-        ]
+        ],
+        "NSLocationWhenInUseUsageDescription": "Precisamos da sua localização para mostrar os melhores salões e profissionais próximos a você.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Precisamos da sua localização para mostrar os melhores salões e profissionais próximos a você."
       }
     },
     "android": {
