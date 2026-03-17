@@ -132,7 +132,7 @@ export interface NotificationResponse {
     title: string;
     message: string;
     time: string;
-    isRead: boolean;
+    read: boolean;
     type: string;
     createdAt: string;
 }

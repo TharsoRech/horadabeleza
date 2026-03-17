@@ -7,7 +7,9 @@ export class NotificationRepository implements INotificationRepository {
 
     async getNotifications(): Promise<Notification[]> {
         try {
-            const response: NotificationResponse[] = await apiClient.get('/notifications?unreadOnly=true');
+            const response: NotificationResponse[] = await apiClient.get('/notifications?unreadOnly=false');
+            
+            console.log('Retorno do backend - notifications:', response);
             
             // Converte as respostas da API para o modelo Notification
             return response.map(notification =>
@@ -16,7 +18,7 @@ export class NotificationRepository implements INotificationRepository {
                     title: notification.title,
                     message: notification.message,
                     time: notification.time,
-                    isRead: notification.isRead,
+                    isRead: notification.read,
                     type: notification.type as NotificationType
                 })
             );

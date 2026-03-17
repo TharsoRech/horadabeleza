@@ -39,38 +39,54 @@ export const NotificationPopup = ({ visible, onClose, notifications, onNotificat
                                 renderItem={({ item }) => {
                                     const config = item.getIconConfig();
                                     return (
-                                        <TouchableOpacity
+                                        <View
                                             style={[
                                                 notificationStyles.item,
                                                 !item.isRead && notificationStyles.unreadItem
                                             ]}
-                                            onPress={async () => {
-                                                // Marca a notificação como lida
-                                                try {
-                                                    await notificationRepository.markAsRead(item.id);
-                                                    console.log(`Notificação marcada como lida: ${item.id}`);
-                                                    
-                                                    // Notifica o componente pai sobre a mudança
-                                                    if (onNotificationMarkedAsRead) {
-                                                        onNotificationMarkedAsRead(item.id);
-                                                    }
-                                                } catch (error) {
-                                                    console.error('Erro ao marcar notificação como lida:', error);
-                                                }
-                                                // Aqui você pode adicionar a lógica para abrir a notificação
-                                                console.log(`Abrindo notificação: ${item.id}`);
-                                            }}
                                         >
                                             <View style={notificationStyles.itemRow}>
-                                                <Ionicons name={config.name as any} size={18} color={config.color} />
-                                                <View style={notificationStyles.textContainer}>
-                                                    <Text style={notificationStyles.itemTitle}>{item.title}</Text>
-                                                    <Text style={notificationStyles.itemMsg}>{item.message}</Text>
-                                                    <Text style={notificationStyles.itemTime}>{item.time}</Text>
+                                                <View style={notificationStyles.leftContent}>
+                                                    <Ionicons name={config.name as any} size={18} color={config.color} />
+                                                    <View style={notificationStyles.textContainer}>
+                                                        <Text style={notificationStyles.itemTitle}>{item.title}</Text>
+                                                        <Text style={notificationStyles.itemMsg}>{item.message}</Text>
+                                                        <Text style={notificationStyles.itemTime}>{item.time}</Text>
+                                                    </View>
+                                                    {!item.isRead && <View style={notificationStyles.unreadDot} />}
                                                 </View>
-                                                {!item.isRead && <View style={notificationStyles.unreadDot} />}
+                                                
+                                                {/* Botão "Marcar como Lida" - só aparece se não estiver lida */}
+                                                {!item.isRead && (
+                                                    <TouchableOpacity
+                                                        style={notificationStyles.markAsReadButton}
+                                                        onPress={async () => {
+                                                            try {
+                                                                await notificationRepository.markAsRead(item.id);
+                                                                console.log(`Notificação marcada como lida: ${item.id}`);
+                                                                
+                                                                // Notifica o componente pai sobre a mudança
+                                                                if (onNotificationMarkedAsRead) {
+                                                                    onNotificationMarkedAsRead(item.id);
+                                                                }
+                                                            } catch (error) {
+                                                                console.error('Erro ao marcar notificação como lida:', error);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Text style={notificationStyles.markAsReadText}>Marcar como lida</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                                
+                                                {/* Indicador de "Lida" - só aparece se estiver lida */}
+                                                {item.isRead && (
+                                                    <View style={notificationStyles.readIndicator}>
+                                                        <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                                                        <Text style={notificationStyles.readText}>Lida</Text>
+                                                    </View>
+                                                )}
                                             </View>
-                                        </TouchableOpacity>
+                                        </View>
                                     );
                                 }}
                                 ListEmptyComponent={

@@ -42,7 +42,13 @@ export const notificationStyles = StyleSheet.create({
     },
     itemRow: {
         flexDirection: 'row',
-        alignItems: 'flex-start'
+        alignItems: 'flex-start',
+        justifyContent: 'space-between'
+    },
+    leftContent: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        flex: 1
     },
     textContainer: {
         flex: 1,
@@ -70,6 +76,31 @@ export const notificationStyles = StyleSheet.create({
         backgroundColor: COLORS.secondary, // Uses your #FF4B91 pink
         borderRadius: 4,
         marginTop: 5
+    },
+    markAsReadButton: {
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 15,
+        marginTop: 8,
+        alignSelf: 'flex-start'
+    },
+    markAsReadText: {
+        color: COLORS.white,
+        fontSize: 12,
+        fontWeight: '600'
+    },
+    readIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+        alignSelf: 'flex-start'
+    },
+    readText: {
+        marginLeft: 6,
+        fontSize: 12,
+        color: '#4CAF50',
+        fontWeight: '600'
     },
     emptyContainer: {
         alignItems: 'center',
