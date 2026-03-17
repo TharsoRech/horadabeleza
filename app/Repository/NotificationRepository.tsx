@@ -7,7 +7,7 @@ export class NotificationRepository implements INotificationRepository {
 
     async getNotifications(): Promise<Notification[]> {
         try {
-            const response: NotificationResponse[] = await apiClient.get('/notifications');
+            const response: NotificationResponse[] = await apiClient.get('/notifications?unreadOnly=true');
             
             // Converte as respostas da API para o modelo Notification
             return response.map(notification =>
@@ -28,7 +28,7 @@ export class NotificationRepository implements INotificationRepository {
 
     async markAsRead(id: string): Promise<void> {
         try {
-            await apiClient.put(`/notifications/${id}/read`, {});
+            await apiClient.put(`/notifications/${id}/read`, null);
         } catch (error) {
             console.error('Mark as read error:', error);
             throw error;

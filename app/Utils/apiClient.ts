@@ -135,7 +135,14 @@ export class ApiClient {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            return await response.json();
+            // Verifica se a resposta tem conteúdo antes de tentar parsear JSON
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return await response.json();
+            } else {
+                // Se não houver conteúdo JSON (como no caso de 204 No Content), retorna undefined
+                return undefined as T;
+            }
         } catch (error) {
             clearTimeout(timeoutId);
             console.error('API PUT error:', error);

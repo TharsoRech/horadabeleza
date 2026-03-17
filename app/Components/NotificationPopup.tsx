@@ -2,6 +2,8 @@ import React from 'react';
 import { Modal, View, Text, TouchableWithoutFeedback, FlatList, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Notification } from '@/app/Models/Notification';
+import { INotificationRepository } from '@/app/Repository/Interfaces/INotificationRepository';
+import { NotificationRepository } from '@/app/Repository/NotificationRepository';
 
 // New Style and Theme Imports
 import { notificationStyles } from "@/app/Styles/notificationStyles";
@@ -11,9 +13,12 @@ interface NotificationPopupProps {
     visible: boolean;
     onClose: () => void;
     notifications: Notification[];
+    onNotificationMarkedAsRead?: (notificationId: string) => void;
 }
 
-export const NotificationPopup = ({ visible, onClose, notifications }: NotificationPopupProps) => {
+const notificationRepository: INotificationRepository = new NotificationRepository();
+
+export const NotificationPopup = ({ visible, onClose, notifications, onNotificationMarkedAsRead }: NotificationPopupProps) => {
     return (
         <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
@@ -39,7 +44,22 @@ export const NotificationPopup = ({ visible, onClose, notifications }: Notificat
                                                 notificationStyles.item,
                                                 !item.isRead && notificationStyles.unreadItem
                                             ]}
-                                            onPress={() => console.log(`Abrindo notificação: ${item.id}`)}
+                                            onPress={async () => {
+                                                // Marca a notificação como lida
+                                                try {
+                                                    await notificationRepository.markAsRead(item.id);
+                                                    console.log(`Notificação marcada como lida: ${item.id}`);
+                                                    
+                                                    // Notifica o componente pai sobre a mudança
+                                                    if (onNotificationMarkedAsRead) {
+                                                        onNotificationMarkedAsRead(item.id);
+                                                    }
+                                                } catch (error) {
+                                                    console.error('Erro ao marcar notificação como lida:', error);
+                                                }
+                                                // Aqui você pode adicionar a lógica para abrir a notificação
+                                                console.log(`Abrindo notificação: ${item.id}`);
+                                            }}
                                         >
                                             <View style={notificationStyles.itemRow}>
                                                 <Ionicons name={config.name as any} size={18} color={config.color} />

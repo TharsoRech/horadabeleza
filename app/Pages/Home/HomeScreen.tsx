@@ -89,6 +89,17 @@ export default function HomeScreen() {
         setProfModalVisible(true);
     };
 
+    const handleNotificationMarkedAsRead = useCallback((notificationId: string) => {
+        // Atualiza o estado local das notificações
+        setNotifications(prevNotifications => 
+            prevNotifications.map(notification => 
+                notification.id === notificationId 
+                    ? new Notification({ ...notification, isRead: true })
+                    : notification
+            )
+        );
+    }, []); // Removido 'setNotifications' das dependências
+
     const requestLocationPermission = useCallback(async () => {
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
@@ -230,6 +241,7 @@ export default function HomeScreen() {
                 visible={notifVisible}
                 onClose={() => setNotifVisible(false)}
                 notifications={notifications}
+                onNotificationMarkedAsRead={handleNotificationMarkedAsRead}
             />
 
             {/* MODAL DE SALÃO */}
