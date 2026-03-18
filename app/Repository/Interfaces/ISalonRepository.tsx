@@ -13,7 +13,7 @@ export interface ISalonRepository {
     getSalonReviews(salonId: string): Promise<Review[]>
     getAvailableTimes(professionalId: string, date: string): Promise<string[]>
     getSalonById(salonId: string): Promise<Salon | null>
-    searchAll(query: string, filter: string, page: number): Promise<(Salon | Professional)[]>;
+    searchAll(query: string, filter: string, page: number, limit?: number, city?: string, state?: string, latitude?: number, longitude?: number): Promise<(Salon | Professional)[]>;
     getMyUnits(): Promise<Salon[]>;
     getSalonsByProfessional(professionalId: string): Promise<Salon[]>;
     getTopProfessionalsByLocation(city: string,state: string, latitude: number, longitude: number): Promise<Professional[]>;

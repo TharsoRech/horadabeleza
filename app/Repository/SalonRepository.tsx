@@ -181,15 +181,24 @@ export class SalonRepository implements ISalonRepository {
 
     // --- SISTEMA DE BUSCA E PAGINAÇÃO ---
 
-    async searchAll(query: string, filter: string, page: number = 1): Promise<(Salon | Professional)[]> {
+    async searchAll(query: string, filter: string, page: number = 1, limit: number = 5, city?: string, state?: string, latitude?: number, longitude?: number): Promise<(Salon | Professional)[]> {
         try {
-            const limit = 5;
-            const params = new URLSearchParams({
-                query,
-                filter,
-                page: page.toString(),
-                limit: limit.toString()
-            });
+            const params = new URLSearchParams();
+            
+            // Se a query estiver vazia, não adiciona o parâmetro query (null)
+            if (query && query.trim()) {
+                params.append('query', encodeURIComponent(query.trim()));
+            }
+            
+            params.append('filter', filter);
+            params.append('page', page.toString());
+            params.append('limit', limit.toString());
+
+            // Add optional location parameters if provided and not empty
+            if (city && city.trim()) params.append('city', city);
+            if (state && state.trim()) params.append('state', state);
+            if (latitude !== undefined && latitude !== null) params.append('latitude', latitude.toString());
+            if (longitude !== undefined && longitude !== null) params.append('longitude', longitude.toString());
 
             const response: any[] = await apiClient.get(`/search?${params.toString()}`);
             

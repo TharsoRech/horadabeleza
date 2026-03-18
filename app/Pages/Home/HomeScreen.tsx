@@ -153,16 +153,26 @@ export default function HomeScreen() {
                 await getCurrentLocation();
             }
 
+            // Se ainda não tiver localização, não carrega os dados
+            if (!userLocation) {
+                console.log("Localização não disponível, não carregando dados de salões e profissionais");
+                const [categoriesData, notificationsData] = await Promise.all([
+                    salonRepository.getCategories(),
+                    notificationRepository.getNotifications()
+                ]);
+                setCategories(categoriesData);
+                setNotifications(notificationsData);
+                setSalons([]);
+                setProfessionals([]);
+                return;
+            }
+
             // Agora, carregue os dados usando a localização
             const [salonsData, categoriesData, notificationsData, professionalsData] = await Promise.all([
-                userLocation ? 
-                    salonRepository.getTopSalonsByLocation(userLocation.city, userLocation.state, userLocation.latitude, userLocation.longitude) :
-                    salonRepository.getPopularSalons(),
+                salonRepository.getTopSalonsByLocation(userLocation.city, userLocation.state, userLocation.latitude, userLocation.longitude),
                 salonRepository.getCategories(),
                 notificationRepository.getNotifications(),
-                userLocation ? 
-                    salonRepository.getTopProfessionalsByLocation(userLocation.city, userLocation.state, userLocation.latitude, userLocation.longitude) :
-                    salonRepository.getTopProfessionals()
+                salonRepository.getTopProfessionalsByLocation(userLocation.city, userLocation.state, userLocation.latitude, userLocation.longitude)
             ]);
             setSalons(salonsData);
             setCategories(categoriesData);
@@ -184,7 +194,13 @@ export default function HomeScreen() {
         else setIsMoreLoading(true);
 
         try {
-            const results = await salonRepository.searchAll(text, filter, pageNum);
+            // Prepare location parameters
+            const city = userLocation?.city;
+            const state = userLocation?.state;
+            const latitude = userLocation?.latitude;
+            const longitude = userLocation?.longitude;
+
+            const results = await salonRepository.searchAll(text, filter, pageNum, 5, city, state, latitude, longitude);
 
             if (pageNum === 1) {
                 setSearchResults(results);
@@ -198,7 +214,7 @@ export default function HomeScreen() {
             setSearchLoading(false);
             setIsMoreLoading(false);
         }
-    }, [salonRepository]);
+    }, [salonRepository, userLocation]);
 
     useEffect(() => {
         if (isSearching && searchText.trim().length > 0) {
