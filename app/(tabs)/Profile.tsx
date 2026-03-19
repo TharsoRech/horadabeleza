@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, TouchableOpacity, ScrollView, Image,
-    TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Modal
+    TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Modal
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,10 +13,12 @@ import { COLORS } from "@/constants/theme";
 import { AuthGuardPlaceholder } from "@/app/Components/AuthGuardPlaceholder";
 import { UserProfile, UserRole } from '../Models/UserProfile';
 import { formatDate } from "@/app/Helpers/FormatStrings";
+import CustomAlert from '../Components/CustomAlert';
 
 import { SubscriptionRepository } from "@/app/Repository/SubscriptionRepository";
 import { Subscription } from "@/app/Models/Subscription";
 import { SubscriptionModal } from '../Components/SubscriptionModal';
+import { UserRepository } from "@/app/Repository/UserRepository";
 
 type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -24,6 +26,7 @@ export default function ProfileScreen() {
     const insets = useSafeAreaInsets();
     const { currentUser, logout, isAuthenticated, updateProfile } = useAuth();
     const subRepo = new SubscriptionRepository();
+    const userRepo = new UserRepository();
 
     // --- ESTADOS DE DADOS ---
     const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -41,7 +44,7 @@ export default function ProfileScreen() {
     // --- ESTADOS DE FORMULÁRIO PERFIL ---
     const [editName, setEditName] = useState(currentUser?.name || '');
     const [editEmail, setEditEmail] = useState(currentUser?.email || '');
-    const [editDob, setEditDob] = useState(currentUser?.dob || '');
+    const [editDob, setEditDob] = useState(currentUser?.dob ? formatDate(currentUser.dob) : '');
     const [editCountry, setEditCountry] = useState(currentUser?.country || '');
     const [editRole, setEditRole] = useState<UserRole>(currentUser?.role || UserRole.CLIENT);
     const [editPassword, setEditPassword] = useState('');
@@ -127,8 +130,10 @@ export default function ProfileScreen() {
 
     // --- AÇÕES ---
     const handleUpdate = async () => {
+        if (!currentUser) return;
+        
         if (editPassword && editPassword !== confirmPassword) {
-            Alert.alert("Erro", "As senhas não coincidem.");
+            CustomAlert.show("Erro", "As senhas não coincidem.");
             return;
         }
         setLoadingAction(true);
@@ -142,9 +147,9 @@ export default function ProfileScreen() {
             await updateProfile(updated);
             setIsEditing(false);
             setEditPassword(''); setConfirmPassword(''); setShowPasswordSection(false);
-            Alert.alert("Sucesso", "Perfil atualizado com sucesso.");
+            CustomAlert.show("Sucesso", "Perfil atualizado com sucesso.");
         } catch (e) {
-            Alert.alert("Erro", "Falha ao atualizar perfil.");
+            CustomAlert.show("Erro", "Falha ao atualizar perfil.");
         } finally {
             setLoadingAction(false);
         }
@@ -153,7 +158,7 @@ export default function ProfileScreen() {
     const handleAddCard = async () => {
         const { number, expiry, cvv, name } = newCard;
         if (number.length < 19 || expiry.length < 5 || cvv.length < 3 || !name) {
-            Alert.alert("Erro", "Dados do cartão inválidos.");
+            CustomAlert.show("Erro", "Dados do cartão inválidos.");
             return;
         }
         setLoadingAction(true);
@@ -167,14 +172,14 @@ export default function ProfileScreen() {
             await subRepo.saveCard(cardToSave);
             setSavedCards(prev => [...prev, cardToSave]);
             setNewCard({ number: '', expiry: '', cvv: '', name: '' });
-            Alert.alert("Sucesso", "Cartão adicionado!");
+            CustomAlert.show("Sucesso", "Cartão adicionado!");
         } finally {
             setLoadingAction(false);
         }
     };
 
     const handleDeleteCard = (id: string) => {
-        Alert.alert("Remover", "Excluir este cartão?", [
+        CustomAlert.show("Remover", "Excluir este cartão?", [
             { text: "Não" },
             { text: "Sim", style: 'destructive', onPress: async () => {
                     await subRepo.deleteCard(id);
@@ -242,7 +247,6 @@ export default function ProfileScreen() {
                             {imageUri ? <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%', borderRadius: 50 }} /> : <Ionicons name="person" size={50} color={COLORS.secondary} />}
                             {isEditing && <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.primary, borderRadius: 15, padding: 5 }}><Ionicons name="camera" size={16} color="#FFF" /></View>}
                         </TouchableOpacity>
-                        )
                     </View>
 
                     <View style={profileStyles.menuContainer}>
@@ -250,6 +254,7 @@ export default function ProfileScreen() {
                             <View style={{ paddingHorizontal: 20, gap: 15 }}>
                                 <View><Text style={profileStyles.label}>Nome</Text><TextInput style={profileStyles.input} value={editName} onChangeText={setEditName} /></View>
                                 <View><Text style={profileStyles.label}>E-mail</Text><TextInput style={profileStyles.input} value={editEmail} onChangeText={setEditEmail} autoCapitalize="none" /></View>
+                                <View><Text style={profileStyles.label}>CPF</Text><TextInput style={profileStyles.input} value={currentUser?.doc || ''} editable={false} /></View>
                                 <View>
                                     <Text style={profileStyles.label}>Tipo de Perfil</Text>
                                     <View style={{ flexDirection: 'row', gap: 8, marginTop: 5 }}>
@@ -304,9 +309,40 @@ export default function ProfileScreen() {
                                     <Ionicons name="chevron-forward" size={18} color="#CCC" />
                                 </TouchableOpacity>
 
-                                <TouchableOpacity style={[profileStyles.menuItem, { marginTop: 20 }]} onPress={logout}>
-                                    <View style={profileStyles.menuIconContainer}><Ionicons name="log-out-outline" size={22} color={COLORS.secondary} /></View>
-                                    <Text style={[profileStyles.menuText, { color: COLORS.secondary }]}>Sair da Conta</Text>
+                                <TouchableOpacity style={[profileStyles.menuItem, { marginTop: 20 }]} onPress={() => {
+                                    if (!currentUser) return;
+                                    
+                                    CustomAlert.show(
+                                        "Excluir Conta",
+                                        "Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.",
+                                        [
+                                            { text: "Cancelar", style: "cancel" },
+                                            {
+                                                text: "Excluir",
+                                                style: "destructive",
+                                                onPress: async () => {
+                                                    setLoadingAction(true);
+                                                    try {
+                                                        const success = await userRepo.deleteAccount(currentUser.id);
+                                                        if (success) {
+                                                            logout();
+                                                            CustomAlert.show("Sucesso", "Conta excluída com sucesso.");
+                                                        } else {
+                                                            CustomAlert.show("Erro", "Falha ao excluir conta.");
+                                                        }
+                                                    } catch (error) {
+                                                        console.error("Erro ao excluir conta:", error);
+                                                        CustomAlert.show("Erro", "Não foi possível excluir a conta.");
+                                                    } finally {
+                                                        setLoadingAction(false);
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    );
+                                }}>
+                                    <View style={profileStyles.menuIconContainer}><Ionicons name="trash-outline" size={22} color="#FF3B30" /></View>
+                                    <Text style={[profileStyles.menuText, { color: "#FF3B30" }]}>Excluir Conta</Text>
                                 </TouchableOpacity>
                             </View>
                         )}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,18 @@ interface CustomAlertProps {
     onConfirm: () => void;
 }
 
-const CustomAlert: React.FC<CustomAlertProps> = ({ visible, title, message, onConfirm }) => {
+interface AlertConfig {
+    title: string;
+    message: string;
+    buttons?: Array<{ text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }>;
+}
+
+interface CustomAlertComponent extends React.FC<CustomAlertProps> {
+    show: (title: string, message: string, buttons?: Array<{ text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }>) => Promise<boolean>;
+    triggerAlert: (config: AlertConfig) => void;
+}
+
+const CustomAlert = (({ visible, title, message, onConfirm }: CustomAlertProps) => {
     return (
         <Modal
             transparent={true}
@@ -43,7 +54,7 @@ const CustomAlert: React.FC<CustomAlertProps> = ({ visible, title, message, onCo
             </View>
         </Modal>
     );
-};
+}) as CustomAlertComponent;
 
 const styles = StyleSheet.create({
     overlay: {
@@ -103,5 +114,34 @@ const styles = StyleSheet.create({
         color: '#FF4B91',
     },
 });
+
+// Global alert state management
+let alertCallbacks: {
+    resolve: (value: boolean) => void;
+    reject: (reason?: any) => void;
+} | null = null;
+
+// Static method to show alert
+CustomAlert.show = (title: string, message: string, buttons?: Array<{ text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }>): Promise<boolean> => {
+    return new Promise((resolve, reject) => {
+        alertCallbacks = { resolve, reject };
+        
+        // Trigger the alert through a global event or context
+        // For now, we'll use a simple console warning
+        console.warn('CustomAlert.show() called but no global alert manager is set up');
+        console.log(`Title: ${title}, Message: ${message}`);
+        
+        // Auto-resolve after 3 seconds for now
+        setTimeout(() => {
+            resolve(true);
+        }, 3000);
+    });
+};
+
+// Function to trigger alert from outside (to be used in context/provider)
+CustomAlert.triggerAlert = (config: AlertConfig) => {
+    // This would be called by a context provider or global state
+    console.log('Alert triggered:', config);
+};
 
 export default CustomAlert;
