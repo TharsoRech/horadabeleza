@@ -19,6 +19,7 @@ import { SubscriptionRepository } from "@/app/Repository/SubscriptionRepository"
 import { Subscription } from "@/app/Models/Subscription";
 import { SubscriptionModal } from '../Components/SubscriptionModal';
 import { UserRepository } from "@/app/Repository/UserRepository";
+import { ChangePasswordModal } from '../Components/ChangePasswordModal';
 
 type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -40,6 +41,7 @@ export default function ProfileScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [subModalVisible, setSubModalVisible] = useState(false);
     const [cardModalVisible, setCardModalVisible] = useState(false);
+    const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
 
     // --- ESTADOS DE FORMULÁRIO PERFIL ---
     const [editName, setEditName] = useState(currentUser?.name || '');
@@ -133,7 +135,7 @@ export default function ProfileScreen() {
         if (!currentUser) return;
         
         if (editPassword && editPassword !== confirmPassword) {
-            CustomAlert.show("Erro", "As senhas não coincidem.");
+            await CustomAlert.show("Erro", "As senhas não coincidem.");
             return;
         }
         setLoadingAction(true);
@@ -147,9 +149,9 @@ export default function ProfileScreen() {
             await updateProfile(updated);
             setIsEditing(false);
             setEditPassword(''); setConfirmPassword(''); setShowPasswordSection(false);
-            CustomAlert.show("Sucesso", "Perfil atualizado com sucesso.");
+            await CustomAlert.show("Sucesso", "Perfil atualizado com sucesso.");
         } catch (e) {
-            CustomAlert.show("Erro", "Falha ao atualizar perfil.");
+            await CustomAlert.show("Erro", "Falha ao atualizar perfil.");
         } finally {
             setLoadingAction(false);
         }
@@ -221,143 +223,152 @@ export default function ProfileScreen() {
     if (loadingInitial) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
 
     return (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: '#FFF' }}>
-            <View style={[profileStyles.container, { paddingTop: insets.top }]}>
+        <>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: '#FFF' }}>
+                <View style={[profileStyles.container, { paddingTop: insets.top }]}>
 
-                {/* HEADER */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, height: 60 }}>
-                    {isEditing ? (
-                        <>
-                            <TouchableOpacity onPress={() => setIsEditing(false)}><Text style={{ color: COLORS.muted }}>Cancelar</Text></TouchableOpacity>
-                            <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Editar Perfil</Text>
-                            <TouchableOpacity onPress={handleUpdate} disabled={loadingAction}>
-                                {loadingAction ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Salvar</Text>}
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <View style={{ flex: 1, alignItems: 'center' }}><Text style={{ fontWeight: 'bold', fontSize: 20 }}>Meu Perfil</Text></View>
-                    )}
-                </View>
-
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-
-                    {/* AVATAR */}
-                    <View style={profileStyles.profileHeader}>
-                        <TouchableOpacity disabled={!isEditing} onPress={pickImage} style={profileStyles.avatarCircle}>
-                            {imageUri ? <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%', borderRadius: 50 }} /> : <Ionicons name="person" size={50} color={COLORS.secondary} />}
-                            {isEditing && <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.primary, borderRadius: 15, padding: 5 }}><Ionicons name="camera" size={16} color="#FFF" /></View>}
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={profileStyles.menuContainer}>
+                    {/* HEADER */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, height: 60 }}>
                         {isEditing ? (
-                            <View style={{ paddingHorizontal: 20, gap: 15 }}>
-                                <View><Text style={profileStyles.label}>Nome</Text><TextInput style={profileStyles.input} value={editName} onChangeText={setEditName} /></View>
-                                <View><Text style={profileStyles.label}>E-mail</Text><TextInput style={profileStyles.input} value={editEmail} onChangeText={setEditEmail} autoCapitalize="none" /></View>
-                                <View><Text style={profileStyles.label}>CPF</Text><TextInput style={profileStyles.input} value={currentUser?.doc || ''} editable={false} /></View>
-                                <View>
-                                    <Text style={profileStyles.label}>Tipo de Perfil</Text>
-                                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 5 }}>
-                                        <RoleButton role={UserRole.CLIENT} label="Cliente" icon="account-outline" />
-                                        <RoleButton role={UserRole.PROFISSIONAL} label="Profissional" icon="shield-crown-outline" />
-                                    </View>
-                                </View>
-                                <View style={{ flexDirection: 'row', gap: 10 }}>
-                                    <View style={{ flex: 1 }}><Text style={profileStyles.label}>Nascimento</Text><TextInput style={profileStyles.input} value={editDob} onChangeText={v => setEditDob(formatDate(v))} keyboardType="numeric" /></View>
-                                    <View style={{ flex: 1 }}><Text style={profileStyles.label}>País</Text><TextInput style={profileStyles.input} value={editCountry} onChangeText={setEditCountry} /></View>
-                                </View>
-                                <TouchableOpacity onPress={() => setShowPasswordSection(!showPasswordSection)} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-                                    <Ionicons name={showPasswordSection ? "chevron-down" : "chevron-forward"} size={18} color={COLORS.muted} />
-                                    <Text style={{ color: COLORS.muted, fontWeight: '600', marginLeft: 5 }}>Alterar Senha</Text>
+                            <>
+                                <TouchableOpacity onPress={() => setIsEditing(false)}><Text style={{ color: COLORS.muted }}>Cancelar</Text></TouchableOpacity>
+                                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Editar Perfil</Text>
+                                <TouchableOpacity onPress={handleUpdate} disabled={loadingAction}>
+                                    {loadingAction ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Salvar</Text>}
                                 </TouchableOpacity>
-                                {showPasswordSection && (
-                                    <View style={{ gap: 12, padding: 15, backgroundColor: '#FAFAFA', borderRadius: 12 }}>
-                                        <View style={profileStyles.passwordContainer}>
-                                            <TextInput style={{ flex: 1 }} secureTextEntry={!showPassword} value={editPassword} onChangeText={setEditPassword} placeholder="Nova Senha" />
-                                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}><Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#999" /></TouchableOpacity>
-                                        </View>
-                                        <TextInput style={profileStyles.input} secureTextEntry={!showPassword} value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Confirmar Senha" />
-                                    </View>
-                                )}
-                            </View>
+                            </>
                         ) : (
-                            <View style={{ paddingHorizontal: 15 }}>
-                                <TouchableOpacity style={profileStyles.menuItem} onPress={() => setIsEditing(true)}>
-                                    <View style={profileStyles.menuIconContainer}><Ionicons name="person-outline" size={22} color={COLORS.primary} /></View>
-                                    <Text style={profileStyles.menuText}>Dados Pessoais</Text>
-                                    <Ionicons name="chevron-forward" size={18} color="#CCC" />
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={profileStyles.menuItem} onPress={() => setSubModalVisible(true)}>
-                                    <View style={profileStyles.menuIconContainer}><MaterialCommunityIcons name="crown-outline" size={22} color="#FFD700" /></View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={profileStyles.menuText}>Minha Assinatura</Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                            <MaterialCommunityIcons name={subStatus.icon} size={14} color={subStatus.color} />
-                                            <Text style={{ fontSize: 11, color: subStatus.color, fontWeight: '700' }}>{subStatus.label}</Text>
-                                        </View>
-                                    </View>
-                                    <Ionicons name="chevron-forward" size={18} color="#CCC" />
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={profileStyles.menuItem} onPress={() => setCardModalVisible(true)}>
-                                    <View style={profileStyles.menuIconContainer}><Ionicons name="card-outline" size={22} color="#4CAF50" /></View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={profileStyles.menuText}>Métodos de pagamento</Text>
-                                        <Text style={{ fontSize: 11, color: COLORS.muted, marginLeft:8 }}>{savedCards.length} cartão(ões) salvo(s)</Text>
-                                    </View>
-                                    <Ionicons name="chevron-forward" size={18} color="#CCC" />
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={[profileStyles.menuItem, { marginTop: 20 }]} onPress={() => {
-                                    if (!currentUser) return;
-                                    
-                                    CustomAlert.show(
-                                        "Excluir Conta",
-                                        "Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.",
-                                        [
-                                            { text: "Cancelar", style: "cancel" },
-                                            {
-                                                text: "Excluir",
-                                                style: "destructive",
-                                                onPress: async () => {
-                                                    setLoadingAction(true);
-                                                    try {
-                                                        const success = await userRepo.deleteAccount(currentUser.id);
-                                                        if (success) {
-                                                            logout();
-                                                            CustomAlert.show("Sucesso", "Conta excluída com sucesso.");
-                                                        } else {
-                                                            CustomAlert.show("Erro", "Falha ao excluir conta.");
-                                                        }
-                                                    } catch (error) {
-                                                        console.error("Erro ao excluir conta:", error);
-                                                        CustomAlert.show("Erro", "Não foi possível excluir a conta.");
-                                                    } finally {
-                                                        setLoadingAction(false);
-                                                    }
-                                                }
-                                            }
-                                        ]
-                                    );
-                                }}>
-                                    <View style={profileStyles.menuIconContainer}><Ionicons name="trash-outline" size={22} color="#FF3B30" /></View>
-                                    <Text style={[profileStyles.menuText, { color: "#FF3B30" }]}>Excluir Conta</Text>
-                                </TouchableOpacity>
-                            </View>
+                            <View style={{ flex: 1, alignItems: 'center' }}><Text style={{ fontWeight: 'bold', fontSize: 20 }}>Meu Perfil</Text></View>
                         )}
                     </View>
-                </ScrollView>
-            </View>
+
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+
+                        {/* AVATAR */}
+                        <View style={profileStyles.profileHeader}>
+                            <TouchableOpacity disabled={!isEditing} onPress={pickImage} style={profileStyles.avatarCircle}>
+                                {imageUri ? <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%', borderRadius: 50 }} /> : <Ionicons name="person" size={50} color={COLORS.secondary} />}
+                                {isEditing && <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.primary, borderRadius: 15, padding: 5 }}><Ionicons name="camera" size={16} color="#FFF" /></View>}
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={profileStyles.menuContainer}>
+                            {isEditing ? (
+                                <View style={{ paddingHorizontal: 20, gap: 15 }}>
+                                    <View><Text style={profileStyles.label}>Nome</Text><TextInput style={profileStyles.input} value={editName} onChangeText={setEditName} /></View>
+                                    <View><Text style={profileStyles.label}>E-mail</Text><TextInput style={profileStyles.input} value={editEmail} onChangeText={setEditEmail} autoCapitalize="none" /></View>
+                                    <View>
+                                        <Text style={profileStyles.label}>Tipo de Perfil</Text>
+                                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 5 }}>
+                                            <RoleButton role={UserRole.CLIENT} label="Cliente" icon="account-outline" />
+                                            <RoleButton role={UserRole.PROFISSIONAL} label="Profissional" icon="shield-crown-outline" />
+                                        </View>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                                        <View style={{ flex: 1 }}><Text style={profileStyles.label}>Nascimento</Text><TextInput style={profileStyles.input} value={editDob} onChangeText={v => setEditDob(formatDate(v))} keyboardType="numeric" /></View>
+                                        <View style={{ flex: 1 }}><Text style={profileStyles.label}>País</Text><TextInput style={profileStyles.input} value={editCountry} onChangeText={setEditCountry} /></View>
+                                    </View>
+                                    <TouchableOpacity onPress={() => setShowPasswordSection(!showPasswordSection)} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+                                        <Ionicons name={showPasswordSection ? "chevron-down" : "chevron-forward"} size={18} color={COLORS.muted} />
+                                        <Text style={{ color: COLORS.muted, fontWeight: '600', marginLeft: 5 }}>Alterar Senha</Text>
+                                    </TouchableOpacity>
+                                    {showPasswordSection && (
+                                        <View style={{ gap: 12, padding: 15, backgroundColor: '#FAFAFA', borderRadius: 12 }}>
+                                            <View style={profileStyles.passwordContainer}>
+                                                <TextInput style={{ flex: 1 }} secureTextEntry={!showPassword} value={editPassword} onChangeText={setEditPassword} placeholder="Nova Senha" />
+                                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}><Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#999" /></TouchableOpacity>
+                                            </View>
+                                            <TextInput style={profileStyles.input} secureTextEntry={!showPassword} value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Confirmar Senha" />
+                                        </View>
+                                    )}
+                                </View>
+                            ) : (
+                                <View style={{ paddingHorizontal: 15 }}>
+                                    <TouchableOpacity style={profileStyles.menuItem} onPress={() => setIsEditing(true)}>
+                                        <View style={profileStyles.menuIconContainer}><Ionicons name="person-outline" size={22} color={COLORS.primary} /></View>
+                                        <Text style={profileStyles.menuText}>Dados Pessoais</Text>
+                                        <Ionicons name="chevron-forward" size={18} color="#CCC" />
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={profileStyles.menuItem} onPress={() => setSubModalVisible(true)}>
+                                        <View style={profileStyles.menuIconContainer}><MaterialCommunityIcons name="crown-outline" size={22} color="#FFD700" /></View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={profileStyles.menuText}>Minha Assinatura</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                <MaterialCommunityIcons name={subStatus.icon} size={14} color={subStatus.color} />
+                                                <Text style={{ fontSize: 11, color: subStatus.color, fontWeight: '700' }}>{subStatus.label}</Text>
+                                            </View>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={18} color="#CCC" />
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={profileStyles.menuItem} onPress={() => setCardModalVisible(true)}>
+                                        <View style={profileStyles.menuIconContainer}><Ionicons name="card-outline" size={22} color="#4CAF50" /></View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={profileStyles.menuText}>Métodos de pagamento</Text>
+                                            <Text style={{ fontSize: 11, color: COLORS.muted, marginLeft:8 }}>{savedCards.length} cartão(ões) salvo(s)</Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={18} color="#CCC" />
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={profileStyles.menuItem} onPress={() => setChangePasswordModalVisible(true)}>
+                                        <View style={profileStyles.menuIconContainer}><Ionicons name="key-outline" size={22} color="#2196F3" /></View>
+                                        <Text style={profileStyles.menuText}>Alterar Senha</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={profileStyles.menuItem} onPress={() => {
+                                        if (!currentUser) return;
+
+                                        CustomAlert.show(
+                                            "Excluir Conta",
+                                            "Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.",
+                                            [
+                                                { text: "Cancelar", style: "cancel" },
+                                                {
+                                                    text: "Excluir",
+                                                    style: "destructive",
+                                                    onPress: async () => {
+                                                        setLoadingAction(true);
+                                                        try {
+                                                            const success = await userRepo.deleteAccount(currentUser.id);
+                                                            if (success) {
+                                                                logout();
+                                                                CustomAlert.show("Sucesso", "Conta excluída com sucesso.");
+                                                            } else {
+                                                                CustomAlert.show("Erro", "Falha ao excluir conta.");
+                                                            }
+                                                        } catch (error) {
+                                                            console.error("Erro ao excluir conta:", error);
+                                                            CustomAlert.show("Erro", "Não foi possível excluir a conta.");
+                                                        } finally {
+                                                            setLoadingAction(false);
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        );
+                                    }}>
+                                        <View style={profileStyles.menuIconContainer}><Ionicons name="trash-outline" size={22} color="#FF3B30" /></View>
+                                        <Text style={[profileStyles.menuText, { color: "#FF3B30" }]}>Excluir Conta</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={[profileStyles.menuItem, { marginTop: 10 }]} onPress={logout}>
+                                        <View style={profileStyles.menuIconContainer}><Ionicons name="log-out-outline" size={22} color={COLORS.secondary} /></View>
+                                        <Text style={[profileStyles.menuText, { color: COLORS.secondary }]}>Sair da Conta</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+                    </ScrollView>
+                </View>
+            </KeyboardAvoidingView>
 
             <SubscriptionModal
                 visible={subModalVisible}
                 onClose={() => setSubModalVisible(false)}
                 isTrialEligible={!subscription?.trialStartDate}
                 onSubscriptionSuccess={(newSub) => {
-                    // Atualiza o estado local imediatamente
                     setSubscription(newSub);
-                    // Recarrega do repositório para garantir persistência
                     loadInitialData();
                 }}
             />
@@ -427,6 +438,16 @@ export default function ProfileScreen() {
                     </View>
                 </View>
             </Modal>
-        </KeyboardAvoidingView>
+
+            <ChangePasswordModal
+                visible={changePasswordModalVisible}
+                onClose={() => setChangePasswordModalVisible(false)}
+                onPasswordChange={async (currentPassword, newPassword) => {
+                    if (!currentUser) throw new Error("Usuário não autenticado");
+                    const success = await userRepo.changePassword(currentUser.id, currentPassword, newPassword);
+                    if (!success) throw new Error("Falha ao alterar senha");
+                }}
+            />
+        </>
     );
 }

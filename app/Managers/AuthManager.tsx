@@ -4,6 +4,7 @@ import CacheManager from '../Managers/CacheManager';
 import { useRouter } from 'expo-router';
 import { UserRepository } from '../Repository/UserRepository';
 import { LoginRepository } from '../Repository/LoginRepository';
+import { API_CONFIG } from '../Config/apiConfig';
 
 interface AuthContextData {
     isAuthenticated: boolean;
@@ -13,6 +14,7 @@ interface AuthContextData {
     login: (email: string, pass: string) => Promise<void>;
     register: (userData: Partial<UserProfile>) => Promise<void>;
     logout: () => Promise<void>;
+    refreshToken: () => Promise<boolean>;
     updateProfile: (updatedProfile: UserProfile) => Promise<void>;
     deleteUserAccount: () => Promise<void>;
     requestPasswordReset: (email: string) => Promise<boolean>;
@@ -86,6 +88,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         router.replace('/Pages/Welcome/WelcomeScreen' as any);
     };
 
+    const refreshToken = async (): Promise<boolean> => {
+        try {
+            // Verifica se temos um usuário logado e um token válido
+            if (!currentUser || !API_CONFIG.getToken()) {
+                return false;
+            }
+
+            // Faz uma chamada para validar o token atual
+            // Pode ser um endpoint específico para refresh ou validar token
+            const response = await fetch(`${API_CONFIG.baseURL}/auth/refresh`, {
+                method: 'POST',
+                headers: {
+                    ...API_CONFIG.getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Se o backend retornar um novo token, atualiza
+                if (data.token) {
+                    API_CONFIG.setToken(data.token);
+                    return true;
+                }
+                
+                // Se não retornar novo token, assume que o atual ainda é válido
+                return true;
+            } else {
+                // Token realmente expirado, não foi possível renovar
+                return false;
+            }
+        } catch (error) {
+            console.error('Erro ao renovar token:', error);
+            return false;
+        }
+    };
+
     const updateProfile = async (updatedProfile: UserProfile) => {
         const success = await userRepository.updateProfile(updatedProfile);
         if (!success) throw new Error("Erro servidor");
@@ -104,8 +144,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         <AuthContext.Provider value={{
             isAuthenticated: !!currentUser,
             isGuest, setIsGuest, currentUser,
-            login, register, logout, updateProfile,
-            deleteUserAccount, requestPasswordReset, loading
+            login, register, logout, refreshToken,
+            updateProfile, deleteUserAccount, requestPasswordReset, loading
         }}>
             {children}
         </AuthContext.Provider>

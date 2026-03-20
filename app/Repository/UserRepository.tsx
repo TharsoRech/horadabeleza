@@ -30,4 +30,17 @@ export class UserRepository implements IUserRepository {
             return false;
         }
     }
+
+    async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
+        try {
+            await apiClient.put(`/users/${userId}/change-password`, {
+                currentPassword,
+                newPassword
+            });
+            return true;
+        } catch (error) {
+            console.error("Erro ao alterar senha no back-end:", error);
+            return false;
+        }
+    }
 }

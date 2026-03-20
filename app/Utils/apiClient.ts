@@ -55,6 +55,49 @@ export class ApiClient {
                     statusText: response.statusText,
                     errorText: errorText
                 });
+                
+                // Tratamento de tokens expirados (401 Unauthorized)
+                if (response.status === 401) {
+                    console.log('🔐 Token expirado, tentando renovar...');
+                    // Importa o hook aqui para evitar o erro de hook fora do componente
+                    const { useAuth } = require('@/app/Managers/AuthManager');
+                    const authManager = useAuth();
+                    const refreshSuccess = await authManager.refreshToken();
+                    
+                    if (refreshSuccess) {
+                        // Token renovado com sucesso, tenta a requisição novamente
+                        console.log('🔐 Token renovado, tentando requisição novamente...');
+                        const newHeaders = {
+                            ...API_CONFIG.getAuthHeaders(),
+                            ...headers
+                        };
+                        
+                        const retryResponse = await fetch(url, {
+                            method: 'GET',
+                            headers: newHeaders,
+                            signal: controller.signal
+                        });
+                        
+                        if (!retryResponse.ok) {
+                            throw new Error(`HTTP error after retry! status: ${retryResponse.status}, message: ${retryResponse.statusText}`);
+                        }
+                        
+                        const retryData = await retryResponse.json();
+                        console.log('✅ API GET Success after retry:', {
+                            dataLength: Array.isArray(retryData) ? retryData.length : 'N/A',
+                            dataType: typeof retryData,
+                            dataSample: Array.isArray(retryData) ? retryData.slice(0, 2) : retryData
+                        });
+                        
+                        return retryData;
+                    } else {
+                        // Falha ao renovar token, faz logout
+                        console.log('🔐 Falha ao renovar token, fazendo logout...');
+                        authManager.logout();
+                        throw new Error('Token expirado e não foi possível renovar. Por favor, faça login novamente.');
+                    }
+                }
+                
                 throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
             }
 
@@ -97,13 +140,70 @@ export class ApiClient {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error('❌ API POST HTTP Error:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorText: errorText
+                });
+                
+                // Tratamento de tokens expirados (401 Unauthorized)
+                if (response.status === 401) {
+                    console.log('🔐 Token expirado, tentando renovar...');
+                    // Importa o hook aqui para evitar o erro de hook fora do componente
+                    const { useAuth } = require('@/app/Managers/AuthManager');
+                    const authManager = useAuth();
+                    const refreshSuccess = await authManager.refreshToken();
+                    
+                    if (refreshSuccess) {
+                        // Token renovado com sucesso, tenta a requisição novamente
+                        console.log('🔐 Token renovado, tentando requisição novamente...');
+                        const newHeaders = {
+                            ...API_CONFIG.getAuthHeaders(),
+                            ...headers
+                        };
+                        
+                        const retryResponse = await fetch(url, {
+                            method: 'POST',
+                            headers: newHeaders,
+                            body: JSON.stringify(data),
+                            signal: controller.signal
+                        });
+                        
+                        if (!retryResponse.ok) {
+                            throw new Error(`HTTP error after retry! status: ${retryResponse.status}, message: ${retryResponse.statusText}`);
+                        }
+                        
+                        const retryData = await retryResponse.json();
+                        console.log('✅ API POST Success after retry:', {
+                            dataLength: Array.isArray(retryData) ? retryData.length : 'N/A',
+                            dataType: typeof retryData,
+                            dataSample: Array.isArray(retryData) ? retryData.slice(0, 2) : retryData
+                        });
+                        
+                        return retryData;
+                    } else {
+                        // Falha ao renovar token, faz logout
+                        console.log('🔐 Falha ao renovar token, fazendo logout...');
+                        authManager.logout();
+                        throw new Error('Token expirado e não foi possível renovar. Por favor, faça login novamente.');
+                    }
+                }
+                
+                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
             }
 
-            return await response.json();
+            const responseData = await response.json();
+            console.log('✅ API POST Success:', {
+                dataLength: Array.isArray(responseData) ? responseData.length : 'N/A',
+                dataType: typeof responseData,
+                dataSample: Array.isArray(responseData) ? responseData.slice(0, 2) : responseData
+            });
+
+            return responseData;
         } catch (error) {
             clearTimeout(timeoutId);
-            console.error('API POST error:', error);
+            console.error('❌ API POST error:', error);
             throw error;
         }
     }
@@ -132,20 +232,82 @@ export class ApiClient {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error('❌ API PUT HTTP Error:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorText: errorText
+                });
+                
+                // Tratamento de tokens expirados (401 Unauthorized)
+                if (response.status === 401) {
+                    console.log('🔐 Token expirado, tentando renovar...');
+                    // Importa o hook aqui para evitar o erro de hook fora do componente
+                    const { useAuth } = require('@/app/Managers/AuthManager');
+                    const authManager = useAuth();
+                    const refreshSuccess = await authManager.refreshToken();
+                    
+                    if (refreshSuccess) {
+                        // Token renovado com sucesso, tenta a requisição novamente
+                        console.log('🔐 Token renovado, tentando requisição novamente...');
+                        const newHeaders = {
+                            ...API_CONFIG.getAuthHeaders(),
+                            ...headers
+                        };
+                        
+                        const retryResponse = await fetch(url, {
+                            method: 'PUT',
+                            headers: newHeaders,
+                            body: JSON.stringify(data),
+                            signal: controller.signal
+                        });
+                        
+                        if (!retryResponse.ok) {
+                            throw new Error(`HTTP error after retry! status: ${retryResponse.status}, message: ${retryResponse.statusText}`);
+                        }
+                        
+                        // Verifica se a resposta tem conteúdo antes de tentar parsear JSON
+                        const contentType = retryResponse.headers.get('content-type');
+                        if (contentType && contentType.includes('application/json')) {
+                            const retryData = await retryResponse.json();
+                            console.log('✅ API PUT Success after retry:', {
+                                dataLength: Array.isArray(retryData) ? retryData.length : 'N/A',
+                                dataType: typeof retryData,
+                                dataSample: Array.isArray(retryData) ? retryData.slice(0, 2) : retryData
+                            });
+                            return retryData;
+                        } else {
+                            // Se não houver conteúdo JSON (como no caso de 204 No Content), retorna undefined
+                            return undefined as T;
+                        }
+                    } else {
+                        // Falha ao renovar token, faz logout
+                        console.log('🔐 Falha ao renovar token, fazendo logout...');
+                        authManager.logout();
+                        throw new Error('Token expirado e não foi possível renovar. Por favor, faça login novamente.');
+                    }
+                }
+                
+                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
             }
 
             // Verifica se a resposta tem conteúdo antes de tentar parsear JSON
             const contentType = response.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
-                return await response.json();
+                const responseData = await response.json();
+                console.log('✅ API PUT Success:', {
+                    dataLength: Array.isArray(responseData) ? responseData.length : 'N/A',
+                    dataType: typeof responseData,
+                    dataSample: Array.isArray(responseData) ? responseData.slice(0, 2) : responseData
+                });
+                return responseData;
             } else {
                 // Se não houver conteúdo JSON (como no caso de 204 No Content), retorna undefined
                 return undefined as T;
             }
         } catch (error) {
             clearTimeout(timeoutId);
-            console.error('API PUT error:', error);
+            console.error('❌ API PUT error:', error);
             throw error;
         }
     }
@@ -173,13 +335,69 @@ export class ApiClient {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error('❌ API DELETE HTTP Error:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorText: errorText
+                });
+                
+                // Tratamento de tokens expirados (401 Unauthorized)
+                if (response.status === 401) {
+                    console.log('🔐 Token expirado, tentando renovar...');
+                    // Importa o hook aqui para evitar o erro de hook fora do componente
+                    const { useAuth } = require('@/app/Managers/AuthManager');
+                    const authManager = useAuth();
+                    const refreshSuccess = await authManager.refreshToken();
+                    
+                    if (refreshSuccess) {
+                        // Token renovado com sucesso, tenta a requisição novamente
+                        console.log('🔐 Token renovado, tentando requisição novamente...');
+                        const newHeaders = {
+                            ...API_CONFIG.getAuthHeaders(),
+                            ...headers
+                        };
+                        
+                        const retryResponse = await fetch(url, {
+                            method: 'DELETE',
+                            headers: newHeaders,
+                            signal: controller.signal
+                        });
+                        
+                        if (!retryResponse.ok) {
+                            throw new Error(`HTTP error after retry! status: ${retryResponse.status}, message: ${retryResponse.statusText}`);
+                        }
+                        
+                        const retryData = await retryResponse.json();
+                        console.log('✅ API DELETE Success after retry:', {
+                            dataLength: Array.isArray(retryData) ? retryData.length : 'N/A',
+                            dataType: typeof retryData,
+                            dataSample: Array.isArray(retryData) ? retryData.slice(0, 2) : retryData
+                        });
+                        
+                        return retryData;
+                    } else {
+                        // Falha ao renovar token, faz logout
+                        console.log('🔐 Falha ao renovar token, fazendo logout...');
+                        authManager.logout();
+                        throw new Error('Token expirado e não foi possível renovar. Por favor, faça login novamente.');
+                    }
+                }
+                
+                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
             }
 
-            return await response.json();
+            const responseData = await response.json();
+            console.log('✅ API DELETE Success:', {
+                dataLength: Array.isArray(responseData) ? responseData.length : 'N/A',
+                dataType: typeof responseData,
+                dataSample: Array.isArray(responseData) ? responseData.slice(0, 2) : responseData
+            });
+
+            return responseData;
         } catch (error) {
             clearTimeout(timeoutId);
-            console.error('API DELETE error:', error);
+            console.error('❌ API DELETE error:', error);
             throw error;
         }
     }
@@ -211,13 +429,73 @@ export class ApiClient {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error('❌ API UPLOAD HTTP Error:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorText: errorText
+                });
+                
+                // Tratamento de tokens expirados (401 Unauthorized)
+                if (response.status === 401) {
+                    console.log('🔐 Token expirado, tentando renovar...');
+                    // Importa o hook aqui para evitar o erro de hook fora do componente
+                    const { useAuth } = require('@/app/Managers/AuthManager');
+                    const authManager = useAuth();
+                    const refreshSuccess = await authManager.refreshToken();
+                    
+                    if (refreshSuccess) {
+                        // Token renovado com sucesso, tenta a requisição novamente
+                        console.log('🔐 Token renovado, tentando requisição novamente...');
+                        const newHeaders = {
+                            ...API_CONFIG.getAuthHeaders(),
+                            ...headers
+                        };
+                        
+                        // Remove o Content-Type para que o browser defina automaticamente com boundary
+                        delete newHeaders['Content-Type'];
+                        
+                        const retryResponse = await fetch(url, {
+                            method: 'POST',
+                            headers: newHeaders,
+                            body: formData,
+                            signal: controller.signal
+                        });
+                        
+                        if (!retryResponse.ok) {
+                            throw new Error(`HTTP error after retry! status: ${retryResponse.status}, message: ${retryResponse.statusText}`);
+                        }
+                        
+                        const retryData = await retryResponse.json();
+                        console.log('✅ API UPLOAD Success after retry:', {
+                            dataLength: Array.isArray(retryData) ? retryData.length : 'N/A',
+                            dataType: typeof retryData,
+                            dataSample: Array.isArray(retryData) ? retryData.slice(0, 2) : retryData
+                        });
+                        
+                        return retryData;
+                    } else {
+                        // Falha ao renovar token, faz logout
+                        console.log('🔐 Falha ao renovar token, fazendo logout...');
+                        authManager.logout();
+                        throw new Error('Token expirado e não foi possível renovar. Por favor, faça login novamente.');
+                    }
+                }
+                
+                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
             }
 
-            return await response.json();
+            const responseData = await response.json();
+            console.log('✅ API UPLOAD Success:', {
+                dataLength: Array.isArray(responseData) ? responseData.length : 'N/A',
+                dataType: typeof responseData,
+                dataSample: Array.isArray(responseData) ? responseData.slice(0, 2) : responseData
+            });
+
+            return responseData;
         } catch (error) {
             clearTimeout(timeoutId);
-            console.error('API UPLOAD error:', error);
+            console.error('❌ API UPLOAD error:', error);
             throw error;
         }
     }
