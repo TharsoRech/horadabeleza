@@ -2,12 +2,13 @@ import { API_CONFIG } from '@/app/Config/apiConfig';
 
 /**
  * Cliente HTTP para chamadas à API .NET
- * Centraliza a lógica de requisições HTTP com tratamento de erros e autenticação
+ * Centraliza a lógica de requisições HTTP com tratamento de erros, autenticação e refresh automático de token
  */
 
 export class ApiClient {
     private baseURL: string;
     private timeout: number;
+    private refreshPromise: Promise<boolean> | null = null;
 
     constructor() {
         this.baseURL = API_CONFIG.baseURL;
@@ -15,9 +16,110 @@ export class ApiClient {
     }
 
     /**
-     * Método GET genérico
+     * Tenta renovar o token automaticamente
+     * Se falhar, desconecta o usuário automaticamente
      */
-    async get<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
+    private async handleTokenRefresh(): Promise<boolean> {
+        // Se já está tentando fazer refresh, espera a promessa existente
+        if (this.refreshPromise) {
+            console.log('⏳ Aguardando refresh de token em andamento...');
+            return this.refreshPromise;
+        }
+
+        // Se não temos refresh token, não há como renovar
+        if (!API_CONFIG.getRefreshToken()) {
+            console.warn('⚠️ Nenhum refresh token disponível, realizando logout automático');
+            await this.handleAutoLogout();
+            return false;
+        }
+
+        // Cria promessa para evitar múltiplas requisições simultâneas
+        this.refreshPromise = this.attemptRefreshToken();
+        
+        try {
+            const success = await this.refreshPromise;
+            return success;
+        } finally {
+            this.refreshPromise = null;
+        }
+    }
+
+    /**
+     * Tenta renovar o token com o backend
+     */
+    private async attemptRefreshToken(): Promise<boolean> {
+        try {
+            console.log('🔄 Tentando renovar token...');
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+            const response = await fetch(`${this.baseURL}/auth/refresh`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${API_CONFIG.getToken()}`
+                },
+                body: JSON.stringify({
+                    refreshToken: API_CONFIG.getRefreshToken()
+                }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+                const data = await response.json();
+                
+                if (data.token) {
+                    console.log('✅ Token renovado com sucesso');
+                    API_CONFIG.setToken(data.token);
+                    
+                    // Se o backend retornar novo refresh token, atualiza também
+                    if (data.refreshToken) {
+                        API_CONFIG.setRefreshToken(data.refreshToken);
+                    }
+                    
+                    return true;
+                }
+                
+                console.warn('⚠️ Resposta de refresh sem novo token');
+                await this.handleAutoLogout();
+                return false;
+            } else {
+                console.error(`❌ Falha ao renovar token: ${response.status}`);
+                await this.handleAutoLogout();
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Erro ao renovar token:', error);
+            await this.handleAutoLogout();
+            return false;
+        }
+    }
+
+    /**
+     * Realiza logout automático quando o token não pode ser renovado
+     */
+    private async handleAutoLogout(): Promise<void> {
+        console.error('🚫 Logout automático acionado: Token inválido e não pode ser renovado');
+        
+        API_CONFIG.clearToken();
+        
+        // Chama callback de logout se registrado
+        if (API_CONFIG.onLogoutCallback) {
+            try {
+                await API_CONFIG.onLogoutCallback();
+            } catch (error) {
+                console.error('Erro ao executar logout callback:', error);
+            }
+        }
+    }
+
+    /**
+     * Método GET genérico com retry automático para token expirado
+     */
+    async get<T>(endpoint: string, headers?: Record<string, string>, retryCount: number = 0): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
         const requestHeaders = {
             ...API_CONFIG.getAuthHeaders(),
@@ -26,8 +128,8 @@ export class ApiClient {
 
         console.log('📡 API GET Request:', {
             url,
-            headers: requestHeaders,
-            timeout: this.timeout
+            timeout: this.timeout,
+            retry: retryCount
         });
 
         const controller = new AbortController();
@@ -58,44 +160,19 @@ export class ApiClient {
                 
                 // Tratamento de tokens expirados (401 Unauthorized)
                 if (response.status === 401) {
-                    console.log('🔐 Token expirado, tentando renovar...');
-                    // Importa o hook aqui para evitar o erro de hook fora do componente
-                    const { useAuth } = require('@/app/Managers/AuthManager');
-                    const authManager = useAuth();
-                    const refreshSuccess = await authManager.refreshToken();
-                    
-                    if (refreshSuccess) {
-                        // Token renovado com sucesso, tenta a requisição novamente
-                        console.log('🔐 Token renovado, tentando requisição novamente...');
-                        const newHeaders = {
-                            ...API_CONFIG.getAuthHeaders(),
-                            ...headers
-                        };
+                    // Tenta fazer refresh automático
+                    if (retryCount === 0) {
+                        console.log('🔄 Token expirado, tentando renovar...');
+                        const refreshed = await this.handleTokenRefresh();
                         
-                        const retryResponse = await fetch(url, {
-                            method: 'GET',
-                            headers: newHeaders,
-                            signal: controller.signal
-                        });
-                        
-                        if (!retryResponse.ok) {
-                            throw new Error(`HTTP error after retry! status: ${retryResponse.status}, message: ${retryResponse.statusText}`);
+                        if (refreshed) {
+                            // Retry da requisição com novo token
+                            return this.get<T>(endpoint, headers, retryCount + 1);
                         }
-                        
-                        const retryData = await retryResponse.json();
-                        console.log('✅ API GET Success after retry:', {
-                            dataLength: Array.isArray(retryData) ? retryData.length : 'N/A',
-                            dataType: typeof retryData,
-                            dataSample: Array.isArray(retryData) ? retryData.slice(0, 2) : retryData
-                        });
-                        
-                        return retryData;
-                    } else {
-                        // Falha ao renovar token, faz logout
-                        console.log('🔐 Falha ao renovar token, fazendo logout...');
-                        authManager.logout();
-                        throw new Error('Token expirado e não foi possível renovar. Por favor, faça login novamente.');
                     }
+                    
+                    // Se falhou no refresh ou já fez retry, desconecta o usuário
+                    throw new Error('Token expirado. Faça login novamente.');
                 }
                 
                 throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
@@ -117,9 +194,9 @@ export class ApiClient {
     }
 
     /**
-     * Método POST genérico
+     * Método POST genérico com retry automático para token expirado
      */
-    async post<T>(endpoint: string, data: any, headers?: Record<string, string>): Promise<T> {
+    async post<T>(endpoint: string, data: any, headers?: Record<string, string>, retryCount: number = 0): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
         const requestHeaders = {
             ...API_CONFIG.getAuthHeaders(),
@@ -149,45 +226,16 @@ export class ApiClient {
                 
                 // Tratamento de tokens expirados (401 Unauthorized)
                 if (response.status === 401) {
-                    console.log('🔐 Token expirado, tentando renovar...');
-                    // Importa o hook aqui para evitar o erro de hook fora do componente
-                    const { useAuth } = require('@/app/Managers/AuthManager');
-                    const authManager = useAuth();
-                    const refreshSuccess = await authManager.refreshToken();
-                    
-                    if (refreshSuccess) {
-                        // Token renovado com sucesso, tenta a requisição novamente
-                        console.log('🔐 Token renovado, tentando requisição novamente...');
-                        const newHeaders = {
-                            ...API_CONFIG.getAuthHeaders(),
-                            ...headers
-                        };
+                    if (retryCount === 0) {
+                        console.log('🔄 Token expirado no POST, tentando renovar...');
+                        const refreshed = await this.handleTokenRefresh();
                         
-                        const retryResponse = await fetch(url, {
-                            method: 'POST',
-                            headers: newHeaders,
-                            body: JSON.stringify(data),
-                            signal: controller.signal
-                        });
-                        
-                        if (!retryResponse.ok) {
-                            throw new Error(`HTTP error after retry! status: ${retryResponse.status}, message: ${retryResponse.statusText}`);
+                        if (refreshed) {
+                            return this.post<T>(endpoint, data, headers, retryCount + 1);
                         }
-                        
-                        const retryData = await retryResponse.json();
-                        console.log('✅ API POST Success after retry:', {
-                            dataLength: Array.isArray(retryData) ? retryData.length : 'N/A',
-                            dataType: typeof retryData,
-                            dataSample: Array.isArray(retryData) ? retryData.slice(0, 2) : retryData
-                        });
-                        
-                        return retryData;
-                    } else {
-                        // Falha ao renovar token, faz logout
-                        console.log('🔐 Falha ao renovar token, fazendo logout...');
-                        authManager.logout();
-                        throw new Error('Token expirado e não foi possível renovar. Por favor, faça login novamente.');
                     }
+                    
+                    throw new Error('Token expirado. Faça login novamente.');
                 }
                 
                 throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
@@ -209,9 +257,9 @@ export class ApiClient {
     }
 
     /**
-     * Método PUT genérico
+     * Método PUT genérico com retry automático para token expirado
      */
-    async put<T>(endpoint: string, data: any, headers?: Record<string, string>): Promise<T> {
+    async put<T>(endpoint: string, data: any, headers?: Record<string, string>, retryCount: number = 0): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
         const requestHeaders = {
             ...API_CONFIG.getAuthHeaders(),
@@ -241,51 +289,16 @@ export class ApiClient {
                 
                 // Tratamento de tokens expirados (401 Unauthorized)
                 if (response.status === 401) {
-                    console.log('🔐 Token expirado, tentando renovar...');
-                    // Importa o hook aqui para evitar o erro de hook fora do componente
-                    const { useAuth } = require('@/app/Managers/AuthManager');
-                    const authManager = useAuth();
-                    const refreshSuccess = await authManager.refreshToken();
-                    
-                    if (refreshSuccess) {
-                        // Token renovado com sucesso, tenta a requisição novamente
-                        console.log('🔐 Token renovado, tentando requisição novamente...');
-                        const newHeaders = {
-                            ...API_CONFIG.getAuthHeaders(),
-                            ...headers
-                        };
+                    if (retryCount === 0) {
+                        console.log('🔄 Token expirado no PUT, tentando renovar...');
+                        const refreshed = await this.handleTokenRefresh();
                         
-                        const retryResponse = await fetch(url, {
-                            method: 'PUT',
-                            headers: newHeaders,
-                            body: JSON.stringify(data),
-                            signal: controller.signal
-                        });
-                        
-                        if (!retryResponse.ok) {
-                            throw new Error(`HTTP error after retry! status: ${retryResponse.status}, message: ${retryResponse.statusText}`);
+                        if (refreshed) {
+                            return this.put<T>(endpoint, data, headers, retryCount + 1);
                         }
-                        
-                        // Verifica se a resposta tem conteúdo antes de tentar parsear JSON
-                        const contentType = retryResponse.headers.get('content-type');
-                        if (contentType && contentType.includes('application/json')) {
-                            const retryData = await retryResponse.json();
-                            console.log('✅ API PUT Success after retry:', {
-                                dataLength: Array.isArray(retryData) ? retryData.length : 'N/A',
-                                dataType: typeof retryData,
-                                dataSample: Array.isArray(retryData) ? retryData.slice(0, 2) : retryData
-                            });
-                            return retryData;
-                        } else {
-                            // Se não houver conteúdo JSON (como no caso de 204 No Content), retorna undefined
-                            return undefined as T;
-                        }
-                    } else {
-                        // Falha ao renovar token, faz logout
-                        console.log('🔐 Falha ao renovar token, fazendo logout...');
-                        authManager.logout();
-                        throw new Error('Token expirado e não foi possível renovar. Por favor, faça login novamente.');
                     }
+                    
+                    throw new Error('Token expirado. Faça login novamente.');
                 }
                 
                 throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
@@ -313,9 +326,9 @@ export class ApiClient {
     }
 
     /**
-     * Método DELETE genérico
+     * Método DELETE genérico com retry automático para token expirado
      */
-    async delete<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
+    async delete<T>(endpoint: string, headers?: Record<string, string>, retryCount: number = 0): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
         const requestHeaders = {
             ...API_CONFIG.getAuthHeaders(),
@@ -344,44 +357,16 @@ export class ApiClient {
                 
                 // Tratamento de tokens expirados (401 Unauthorized)
                 if (response.status === 401) {
-                    console.log('🔐 Token expirado, tentando renovar...');
-                    // Importa o hook aqui para evitar o erro de hook fora do componente
-                    const { useAuth } = require('@/app/Managers/AuthManager');
-                    const authManager = useAuth();
-                    const refreshSuccess = await authManager.refreshToken();
-                    
-                    if (refreshSuccess) {
-                        // Token renovado com sucesso, tenta a requisição novamente
-                        console.log('🔐 Token renovado, tentando requisição novamente...');
-                        const newHeaders = {
-                            ...API_CONFIG.getAuthHeaders(),
-                            ...headers
-                        };
+                    if (retryCount === 0) {
+                        console.log('🔄 Token expirado no DELETE, tentando renovar...');
+                        const refreshed = await this.handleTokenRefresh();
                         
-                        const retryResponse = await fetch(url, {
-                            method: 'DELETE',
-                            headers: newHeaders,
-                            signal: controller.signal
-                        });
-                        
-                        if (!retryResponse.ok) {
-                            throw new Error(`HTTP error after retry! status: ${retryResponse.status}, message: ${retryResponse.statusText}`);
+                        if (refreshed) {
+                            return this.delete<T>(endpoint, headers, retryCount + 1);
                         }
-                        
-                        const retryData = await retryResponse.json();
-                        console.log('✅ API DELETE Success after retry:', {
-                            dataLength: Array.isArray(retryData) ? retryData.length : 'N/A',
-                            dataType: typeof retryData,
-                            dataSample: Array.isArray(retryData) ? retryData.slice(0, 2) : retryData
-                        });
-                        
-                        return retryData;
-                    } else {
-                        // Falha ao renovar token, faz logout
-                        console.log('🔐 Falha ao renovar token, fazendo logout...');
-                        authManager.logout();
-                        throw new Error('Token expirado e não foi possível renovar. Por favor, faça login novamente.');
                     }
+                    
+                    throw new Error('Token expirado. Faça login novamente.');
                 }
                 
                 throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
@@ -403,9 +388,9 @@ export class ApiClient {
     }
 
     /**
-     * Upload de arquivos (para imagens)
+     * Upload de arquivos (para imagens) com retry automático para token expirado
      */
-    async upload<T>(endpoint: string, formData: FormData, headers?: Record<string, string>): Promise<T> {
+    async upload<T>(endpoint: string, formData: FormData, headers?: Record<string, string>, retryCount: number = 0): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
         const requestHeaders = {
             ...API_CONFIG.getAuthHeaders(),
@@ -438,48 +423,16 @@ export class ApiClient {
                 
                 // Tratamento de tokens expirados (401 Unauthorized)
                 if (response.status === 401) {
-                    console.log('🔐 Token expirado, tentando renovar...');
-                    // Importa o hook aqui para evitar o erro de hook fora do componente
-                    const { useAuth } = require('@/app/Managers/AuthManager');
-                    const authManager = useAuth();
-                    const refreshSuccess = await authManager.refreshToken();
-                    
-                    if (refreshSuccess) {
-                        // Token renovado com sucesso, tenta a requisição novamente
-                        console.log('🔐 Token renovado, tentando requisição novamente...');
-                        const newHeaders = {
-                            ...API_CONFIG.getAuthHeaders(),
-                            ...headers
-                        };
+                    if (retryCount === 0) {
+                        console.log('🔄 Token expirado no UPLOAD, tentando renovar...');
+                        const refreshed = await this.handleTokenRefresh();
                         
-                        // Remove o Content-Type para que o browser defina automaticamente com boundary
-                        delete newHeaders['Content-Type'];
-                        
-                        const retryResponse = await fetch(url, {
-                            method: 'POST',
-                            headers: newHeaders,
-                            body: formData,
-                            signal: controller.signal
-                        });
-                        
-                        if (!retryResponse.ok) {
-                            throw new Error(`HTTP error after retry! status: ${retryResponse.status}, message: ${retryResponse.statusText}`);
+                        if (refreshed) {
+                            return this.upload<T>(endpoint, formData, headers, retryCount + 1);
                         }
-                        
-                        const retryData = await retryResponse.json();
-                        console.log('✅ API UPLOAD Success after retry:', {
-                            dataLength: Array.isArray(retryData) ? retryData.length : 'N/A',
-                            dataType: typeof retryData,
-                            dataSample: Array.isArray(retryData) ? retryData.slice(0, 2) : retryData
-                        });
-                        
-                        return retryData;
-                    } else {
-                        // Falha ao renovar token, faz logout
-                        console.log('🔐 Falha ao renovar token, fazendo logout...');
-                        authManager.logout();
-                        throw new Error('Token expirado e não foi possível renovar. Por favor, faça login novamente.');
                     }
+                    
+                    throw new Error('Token expirado. Faça login novamente.');
                 }
                 
                 throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
@@ -503,3 +456,4 @@ export class ApiClient {
 
 // Instância única do cliente API
 export const apiClient = new ApiClient();
+

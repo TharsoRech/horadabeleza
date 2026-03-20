@@ -1,6 +1,6 @@
 /**
  * Configuração da API
- * Define a URL base e configurações de autenticação
+ * Define a URL base e configurações de autenticação com suporte a refresh token automático
  */
 
 export const API_CONFIG = {
@@ -18,6 +18,15 @@ export const API_CONFIG = {
     // Token JWT será armazenado aqui após o login
     token: null as string | null,
     
+    // Refresh token será armazenado aqui após o login
+    refreshToken: null as string | null,
+    
+    // Controla se está tentando fazer refresh para evitar múltiplas tentativas simultâneas
+    isRefreshing: false,
+    
+    // Callbacks para eventos de logout automático
+    onLogoutCallback: null as (() => Promise<void>) | null,
+    
     // Método para definir o token de autenticação
     setToken(token: string) {
         this.token = token;
@@ -28,9 +37,26 @@ export const API_CONFIG = {
         return this.token;
     },
     
-    // Método para limpar o token (logout)
+    // Método para definir o refresh token
+    setRefreshToken(refreshToken: string) {
+        this.refreshToken = refreshToken;
+    },
+    
+    // Método para obter o refresh token
+    getRefreshToken(): string | null {
+        return this.refreshToken;
+    },
+    
+    // Método para limpar tokens (logout)
     clearToken() {
         this.token = null;
+        this.refreshToken = null;
+        this.isRefreshing = false;
+    },
+    
+    // Método para registrar callback de logout automático
+    setOnLogoutCallback(callback: () => Promise<void>) {
+        this.onLogoutCallback = callback;
     },
     
     // Método para obter headers de autenticação

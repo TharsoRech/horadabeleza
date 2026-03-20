@@ -12,8 +12,9 @@ import { useAuth } from '../Managers/AuthManager';
 import { COLORS } from "@/constants/theme";
 import { AuthGuardPlaceholder } from "@/app/Components/AuthGuardPlaceholder";
 import { UserProfile, UserRole } from '../Models/UserProfile';
-import { formatDate } from "@/app/Helpers/FormatStrings";
+import { formatDate, convertToISO8601, formatCPF } from "@/app/Helpers/FormatStrings";
 import CustomAlert from '../Components/CustomAlert';
+import { API_CONFIG } from '../Config/apiConfig';
 
 import { SubscriptionRepository } from "@/app/Repository/SubscriptionRepository";
 import { Subscription } from "@/app/Models/Subscription";
@@ -37,8 +38,6 @@ export default function ProfileScreen() {
     // --- ESTADOS DE UI ---
     const [isEditing, setIsEditing] = useState(false);
     const [loadingAction, setLoadingAction] = useState(false);
-    const [showPasswordSection, setShowPasswordSection] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
     const [subModalVisible, setSubModalVisible] = useState(false);
     const [cardModalVisible, setCardModalVisible] = useState(false);
     const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
@@ -46,20 +45,64 @@ export default function ProfileScreen() {
     // --- ESTADOS DE FORMULÁRIO PERFIL ---
     const [editName, setEditName] = useState(currentUser?.name || '');
     const [editEmail, setEditEmail] = useState(currentUser?.email || '');
+    const [editCpf, setEditCpf] = useState(currentUser?.doc ? formatCPF(currentUser.doc) : ''); // Formatar CPF inicial
+    const [editPhone, setEditPhone] = useState(currentUser?.phone || ''); // Campo de telefone
     const [editDob, setEditDob] = useState(currentUser?.dob ? formatDate(currentUser.dob) : '');
     const [editCountry, setEditCountry] = useState(currentUser?.country || '');
     const [editRole, setEditRole] = useState<UserRole>(currentUser?.role || UserRole.CLIENT);
-    const [editPassword, setEditPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
     const [imageUri, setImageUri] = useState<string | null>(currentUser?.base64Image ? `data:image/jpeg;base64,${currentUser.base64Image}` : null);
     const [base64Image, setBase64Image] = useState<string | undefined>(currentUser?.base64Image);
 
     // --- ESTADO NOVO CARTÃO ---
     const [newCard, setNewCard] = useState({ number: '', expiry: '', cvv: '', name: '' });
 
-    // Função centralizada para carregar dados (pode ser chamada no mount ou após update)
+    const loadUserProfileFromAPI = useCallback(async () => {
+        try {
+            const token = API_CONFIG.getToken();
+            if (!token) {
+                console.warn("Sem token de autenticação disponível");
+                return;
+            }
+
+            const response = await fetch(`${API_CONFIG.baseURL}/auth/me`, {
+                method: 'GET',
+                headers: API_CONFIG.getAuthHeaders(),
+            });
+
+            if (!response.ok) {
+                console.error(`Erro ao carregar perfil do API: ${response.status}`);
+                return;
+            }
+
+            const userData = await response.json();
+            
+            // Mapear dados do API para os campos do formulário
+            if (userData) {
+                setEditName(userData.name || currentUser?.name || '');
+                setEditEmail(userData.email || currentUser?.email || '');
+                setEditCpf(userData.doc ? formatCPF(userData.doc) : currentUser?.doc ? formatCPF(currentUser.doc) : '');
+                setEditPhone(userData.phone || currentUser?.phone || '');
+                setEditDob(userData.dob ? formatDate(userData.dob) : currentUser?.dob ? formatDate(currentUser.dob) : '');
+                setEditCountry(userData.country || currentUser?.country || '');
+                setEditRole(userData.role || currentUser?.role || UserRole.CLIENT);
+                
+                // Se houver imagem, atualizar também
+                if (userData.base64Image) {
+                    setBase64Image(userData.base64Image);
+                    setImageUri(`data:image/jpeg;base64,${userData.base64Image}`);
+                }
+            }
+        } catch (error) {
+            console.error("Erro ao carregar dados do perfil via API:", error);
+        }
+    }, [currentUser?.name, currentUser?.email, currentUser?.doc, currentUser?.dob, currentUser?.country, currentUser?.role]);
+
     const loadInitialData = useCallback(async () => {
         try {
+            // Carregar dados do usuário do endpoint /auth/me
+            await loadUserProfileFromAPI();
+            
+            // Carregar dados de assinatura e cartões
             const [subData, cardsData] = await Promise.all([
                 subRepo.getSubscription(),
                 subRepo.getSavedCards()
@@ -67,11 +110,11 @@ export default function ProfileScreen() {
             setSubscription(subData);
             setSavedCards(cardsData || []);
         } catch (error) {
-            console.error("Erro ao carrergar dados do perfil:", error);
+            console.error("Erro ao carregar dados do perfil:", error);
         } finally {
             setLoadingInitial(false);
         }
-    }, []);
+    }, [loadUserProfileFromAPI]);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -79,7 +122,7 @@ export default function ProfileScreen() {
         }
     }, [isAuthenticated, loadInitialData]);
 
-    // --- MÁSCARAS E FORMATADORES ---
+
     const formatCardNumber = (text: string) => {
         const cleaned = text.replace(/\D/g, '');
         return cleaned.replace(/(.{4})/g, '$1 ').trim().slice(0, 19);
@@ -91,70 +134,142 @@ export default function ProfileScreen() {
         return cleaned;
     };
 
-    // --- LÓGICA DE STATUS DA ASSINATURA ---
+    // Formatar data enquanto digita: DD/MM/YYYY
+    const formatDateInput = (text: string) => {
+        const cleaned = text.replace(/\D/g, '');
+        if (cleaned.length <= 2) return cleaned;
+        if (cleaned.length <= 4) return `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`;
+        return `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}/${cleaned.slice(4, 8)}`;
+    };
+
     const getSubscriptionStatus = () => {
         const defaultStatus: { label: string, color: string, icon: MaterialIconName } = {
             label: "Nenhum Plano Ativo",
             color: "#FF3B30",
             icon: "alert-circle-outline"
         };
-
         if (!subscription) return defaultStatus;
-
-        // Caso 1: Plano Pago Ativo (Premium, Gold, etc)
         if (subscription.isActive &&  subscription.planType !== 'trial') {
-            return {
-                label: `PLANO ${subscription.planType.toUpperCase()}`,
-                color: '#4CAF50',
-                icon: "shield-check" as MaterialIconName
-            };
+            return { label: `PLANO ${subscription.planType.toUpperCase()}`, color: '#4CAF50', icon: "shield-check" as MaterialIconName };
         }
-
-        // Caso 2: Plano FREE (Trial de 30 dias)
         if (subscription.trialEndDate) {
             const end = new Date(subscription.trialEndDate).getTime();
             const now = new Date().getTime();
             const daysLeft = Math.max(0, Math.ceil((end - now) / (1000 * 3600 * 24)));
-
-            if (daysLeft > 0) {
-                return {
-                    label: `PLANO FREE (${daysLeft} dias rest.)`,
-                    color: '#FF9800',
-                    icon: "clock-outline" as MaterialIconName
-                };
-            }
+            if (daysLeft > 0) return { label: `PLANO FREE (${daysLeft} dias rest.)`, color: '#FF9800', icon: "clock-outline" as MaterialIconName };
         }
-
         return defaultStatus;
     };
 
     const subStatus = getSubscriptionStatus();
 
-    // --- AÇÕES ---
+    // Função auxiliar para converter DD/MM/YYYY para YYYY-MM-DD
     const handleUpdate = async () => {
         if (!currentUser) return;
-        
-        if (editPassword && editPassword !== confirmPassword) {
-            await CustomAlert.show("Erro", "As senhas não coincidem.");
-            return;
-        }
         setLoadingAction(true);
+        
+        // Salvar os valores anteriores em caso de erro
+        const previousValues = {
+            name: editName,
+            email: editEmail,
+            cpf: editCpf,
+            phone: editPhone,
+            dob: editDob,
+            country: editCountry,
+            role: editRole,
+            image: base64Image
+        };
+        
         try {
+            // Converter data de DD/MM/YYYY (ou outro formato) para YYYY-MM-DD
+            const formattedDob = convertToISO8601(editDob);
+            
+            console.log('🔄 Iniciando atualização de perfil...', {
+                name: editName,
+                email: editEmail,
+                doc: editCpf,
+                dob: formattedDob,
+                phone: editPhone,
+                country: editCountry
+            });
+            
+            // Validar data
+            if (editDob && !formattedDob) {
+                await CustomAlert.show("Erro", "Data de nascimento inválida. Use formato DD/MM/YYYY.");
+                setLoadingAction(false);
+                return;
+            }
+            
             const updated = new UserProfile({
                 ...currentUser,
-                name: editName, email: editEmail, dob: editDob,
-                country: editCountry, role: editRole, base64Image: base64Image,
-                ...(editPassword ? { password: editPassword } : {})
+                name: editName,
+                email: editEmail,
+                doc: editCpf.replace(/\D/g, ''), // Remover máscara do CPF
+                dob: formattedDob || editDob, // Usar formato convertido
+                country: editCountry,
+                role: editRole,
+                base64Image: base64Image,
+                phone: editPhone || '' // Garantir que phone nunca é undefined
             });
+            
+            // Aguardar a resposta da API antes de fazer qualquer alteração no UI
             await updateProfile(updated);
+            
+            console.log('✅ Perfil atualizado com sucesso!');
             setIsEditing(false);
-            setEditPassword(''); setConfirmPassword(''); setShowPasswordSection(false);
             await CustomAlert.show("Sucesso", "Perfil atualizado com sucesso.");
-        } catch (e) {
-            await CustomAlert.show("Erro", "Falha ao atualizar perfil.");
+        } catch (e: any) {
+            // Rollback: restaurar os valores anteriores em caso de erro
+            console.error("❌ Erro ao atualizar perfil:", {
+                message: e?.message,
+                error: e
+            });
+            setEditName(previousValues.name);
+            setEditEmail(previousValues.email);
+            setEditCpf(previousValues.cpf);
+            setEditPhone(previousValues.phone);
+            setEditDob(previousValues.dob);
+            setEditCountry(previousValues.country);
+            setEditRole(previousValues.role);
+            setBase64Image(previousValues.image);
+            
+            const errorMessage = e?.message || "Erro ao atualizar perfil. Verifique sua conexão e tente novamente.";
+            console.log('💬 Exibindo erro:', errorMessage);
+            await CustomAlert.show("Erro", errorMessage);
         } finally {
             setLoadingAction(false);
         }
+    };
+
+    const handleDeleteAccount = () => {
+        if (!currentUser) return;
+        CustomAlert.show(
+            "Excluir Conta",
+            "Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.",
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Excluir",
+                    style: "destructive",
+                    onPress: async () => {
+                        setLoadingAction(true);
+                        try {
+                            const success = await userRepo.deleteAccount(currentUser.id);
+                            if (success) {
+                                logout();
+                                CustomAlert.show("Sucesso", "Conta excluída com sucesso.");
+                            } else {
+                                CustomAlert.show("Erro", "Falha ao excluir conta.");
+                            }
+                        } catch (error) {
+                            CustomAlert.show("Erro", "Não foi possível excluir a conta.");
+                        } finally {
+                            setLoadingAction(false);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const handleAddCard = async () => {
@@ -165,12 +280,7 @@ export default function ProfileScreen() {
         }
         setLoadingAction(true);
         try {
-            const cardToSave = {
-                id: Date.now().toString(),
-                last4: number.slice(-4),
-                expiry: expiry,
-                isDefault: savedCards.length === 0
-            };
+            const cardToSave = { id: Date.now().toString(), last4: number.slice(-4), expiry: expiry, isDefault: savedCards.length === 0 };
             await subRepo.saveCard(cardToSave);
             setSavedCards(prev => [...prev, cardToSave]);
             setNewCard({ number: '', expiry: '', cvv: '', name: '' });
@@ -232,7 +342,7 @@ export default function ProfileScreen() {
                         {isEditing ? (
                             <>
                                 <TouchableOpacity onPress={() => setIsEditing(false)}><Text style={{ color: COLORS.muted }}>Cancelar</Text></TouchableOpacity>
-                                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Editar Perfil</Text>
+                                <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Dados Pessoais</Text>
                                 <TouchableOpacity onPress={handleUpdate} disabled={loadingAction}>
                                     {loadingAction ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Salvar</Text>}
                                 </TouchableOpacity>
@@ -255,8 +365,10 @@ export default function ProfileScreen() {
                         <View style={profileStyles.menuContainer}>
                             {isEditing ? (
                                 <View style={{ paddingHorizontal: 20, gap: 15 }}>
-                                    <View><Text style={profileStyles.label}>Nome</Text><TextInput style={profileStyles.input} value={editName} onChangeText={setEditName} /></View>
-                                    <View><Text style={profileStyles.label}>E-mail</Text><TextInput style={profileStyles.input} value={editEmail} onChangeText={setEditEmail} autoCapitalize="none" /></View>
+                                    <View><Text style={profileStyles.label}>Nome Completo</Text><TextInput style={profileStyles.input} value={editName} onChangeText={setEditName} /></View>
+                                    <View><Text style={profileStyles.label}>E-mail</Text><TextInput style={profileStyles.input} value={editEmail} onChangeText={setEditEmail} autoCapitalize="none" keyboardType="email-address" /></View>
+                                    <View><Text style={profileStyles.label}>CPF</Text><TextInput style={profileStyles.input} value={editCpf} onChangeText={v => setEditCpf(formatCPF(v))} keyboardType="numeric" maxLength={14} placeholder="000.000.000-00" /></View>
+                                    <View><Text style={profileStyles.label}>Telefone</Text><TextInput style={profileStyles.input} value={editPhone} onChangeText={setEditPhone} keyboardType="phone-pad" placeholder="(11) 99999-9999" /></View>
                                     <View>
                                         <Text style={profileStyles.label}>Tipo de Perfil</Text>
                                         <View style={{ flexDirection: 'row', gap: 8, marginTop: 5 }}>
@@ -265,22 +377,18 @@ export default function ProfileScreen() {
                                         </View>
                                     </View>
                                     <View style={{ flexDirection: 'row', gap: 10 }}>
-                                        <View style={{ flex: 1 }}><Text style={profileStyles.label}>Nascimento</Text><TextInput style={profileStyles.input} value={editDob} onChangeText={v => setEditDob(formatDate(v))} keyboardType="numeric" /></View>
+                                        <View style={{ flex: 1 }}><Text style={profileStyles.label}>Nascimento</Text><TextInput style={profileStyles.input} value={editDob} onChangeText={v => setEditDob(formatDateInput(v))} keyboardType="numeric" placeholder="DD/MM/YYYY" maxLength={10} /></View>
                                         <View style={{ flex: 1 }}><Text style={profileStyles.label}>País</Text><TextInput style={profileStyles.input} value={editCountry} onChangeText={setEditCountry} /></View>
                                     </View>
-                                    <TouchableOpacity onPress={() => setShowPasswordSection(!showPasswordSection)} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-                                        <Ionicons name={showPasswordSection ? "chevron-down" : "chevron-forward"} size={18} color={COLORS.muted} />
-                                        <Text style={{ color: COLORS.muted, fontWeight: '600', marginLeft: 5 }}>Alterar Senha</Text>
+
+                                    {/* EXCLUIR CONTA - MOSTRANDO APENAS NOS DADOS PESSOAIS (MODO EDIÇÃO) */}
+                                    <TouchableOpacity
+                                        style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20, padding: 10, alignSelf: 'center' }}
+                                        onPress={handleDeleteAccount}
+                                    >
+                                        <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                                        <Text style={{ color: "#FF3B30", fontWeight: '600', marginLeft: 8 }}>Excluir minha conta</Text>
                                     </TouchableOpacity>
-                                    {showPasswordSection && (
-                                        <View style={{ gap: 12, padding: 15, backgroundColor: '#FAFAFA', borderRadius: 12 }}>
-                                            <View style={profileStyles.passwordContainer}>
-                                                <TextInput style={{ flex: 1 }} secureTextEntry={!showPassword} value={editPassword} onChangeText={setEditPassword} placeholder="Nova Senha" />
-                                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}><Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#999" /></TouchableOpacity>
-                                            </View>
-                                            <TextInput style={profileStyles.input} secureTextEntry={!showPassword} value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Confirmar Senha" />
-                                        </View>
-                                    )}
                                 </View>
                             ) : (
                                 <View style={{ paddingHorizontal: 15 }}>
@@ -311,45 +419,11 @@ export default function ProfileScreen() {
                                         <Ionicons name="chevron-forward" size={18} color="#CCC" />
                                     </TouchableOpacity>
 
+                                    {/* ALTERAR SENHA - SOMENTE NO MENU PRINCIPAL */}
                                     <TouchableOpacity style={profileStyles.menuItem} onPress={() => setChangePasswordModalVisible(true)}>
                                         <View style={profileStyles.menuIconContainer}><Ionicons name="key-outline" size={22} color="#2196F3" /></View>
                                         <Text style={profileStyles.menuText}>Alterar Senha</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity style={profileStyles.menuItem} onPress={() => {
-                                        if (!currentUser) return;
-
-                                        CustomAlert.show(
-                                            "Excluir Conta",
-                                            "Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.",
-                                            [
-                                                { text: "Cancelar", style: "cancel" },
-                                                {
-                                                    text: "Excluir",
-                                                    style: "destructive",
-                                                    onPress: async () => {
-                                                        setLoadingAction(true);
-                                                        try {
-                                                            const success = await userRepo.deleteAccount(currentUser.id);
-                                                            if (success) {
-                                                                logout();
-                                                                CustomAlert.show("Sucesso", "Conta excluída com sucesso.");
-                                                            } else {
-                                                                CustomAlert.show("Erro", "Falha ao excluir conta.");
-                                                            }
-                                                        } catch (error) {
-                                                            console.error("Erro ao excluir conta:", error);
-                                                            CustomAlert.show("Erro", "Não foi possível excluir a conta.");
-                                                        } finally {
-                                                            setLoadingAction(false);
-                                                        }
-                                                    }
-                                                }
-                                            ]
-                                        );
-                                    }}>
-                                        <View style={profileStyles.menuIconContainer}><Ionicons name="trash-outline" size={22} color="#FF3B30" /></View>
-                                        <Text style={[profileStyles.menuText, { color: "#FF3B30" }]}>Excluir Conta</Text>
+                                        <Ionicons name="chevron-forward" size={18} color="#CCC" />
                                     </TouchableOpacity>
 
                                     <TouchableOpacity style={[profileStyles.menuItem, { marginTop: 10 }]} onPress={logout}>
@@ -380,7 +454,6 @@ export default function ProfileScreen() {
                             <Text style={{ fontSize: 20, fontWeight: 'bold' }}>Gerenciar Cartões</Text>
                             <TouchableOpacity onPress={() => setCardModalVisible(false)}><Ionicons name="close-circle" size={30} color="#DDD" /></TouchableOpacity>
                         </View>
-
                         <ScrollView showsVerticalScrollIndicator={false}>
                             {savedCards.map(card => (
                                 <View key={card.id} style={{
@@ -400,35 +473,13 @@ export default function ProfileScreen() {
                                     <TouchableOpacity onPress={() => handleDeleteCard(card.id)}><Ionicons name="trash-outline" size={22} color="#FF5252" /></TouchableOpacity>
                                 </View>
                             ))}
-
                             <View style={{ marginTop: 10, padding: 18, backgroundColor: '#F9F9F9', borderRadius: 15, borderStyle: 'dashed', borderWidth: 1, borderColor: '#DDD' }}>
                                 <Text style={{ fontWeight: 'bold', marginBottom: 15 }}>Novo Cartão</Text>
                                 <TextInput style={profileStyles.input} placeholder="Nome no Cartão" value={newCard.name} onChangeText={t => setNewCard({...newCard, name: t})} />
-                                <TextInput
-                                    style={[profileStyles.input, { marginTop: 10 }]}
-                                    placeholder="Número do Cartão"
-                                    keyboardType="numeric"
-                                    value={newCard.number}
-                                    onChangeText={t => setNewCard({...newCard, number: formatCardNumber(t)})}
-                                    maxLength={19}
-                                />
+                                <TextInput style={[profileStyles.input, { marginTop: 10 }]} placeholder="Número do Cartão" keyboardType="numeric" value={newCard.number} onChangeText={t => setNewCard({...newCard, number: formatCardNumber(t)})} maxLength={19} />
                                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                                    <TextInput
-                                        style={[profileStyles.input, { flex: 1 }]}
-                                        placeholder="MM/AA"
-                                        keyboardType="numeric"
-                                        value={newCard.expiry}
-                                        onChangeText={t => setNewCard({...newCard, expiry: formatExpiry(t)})}
-                                        maxLength={5}
-                                    />
-                                    <TextInput
-                                        style={[profileStyles.input, { flex: 1 }]}
-                                        placeholder="CVV"
-                                        keyboardType="numeric"
-                                        value={newCard.cvv}
-                                        onChangeText={t => setNewCard({...newCard, cvv: t.replace(/\D/g, '')})}
-                                        maxLength={4}
-                                    />
+                                    <TextInput style={[profileStyles.input, { flex: 1 }]} placeholder="MM/AA" keyboardType="numeric" value={newCard.expiry} onChangeText={t => setNewCard({...newCard, expiry: formatExpiry(t)})} maxLength={5} />
+                                    <TextInput style={[profileStyles.input, { flex: 1 }]} placeholder="CVV" keyboardType="numeric" value={newCard.cvv} onChangeText={t => setNewCard({...newCard, cvv: t.replace(/\D/g, '')})} maxLength={4} />
                                 </View>
                                 <TouchableOpacity onPress={handleAddCard} disabled={loadingAction} style={{ backgroundColor: COLORS.primary, padding: 15, borderRadius: 12, marginTop: 20, alignItems: 'center' }}>
                                     {loadingAction ? <ActivityIndicator color="#FFF" /> : <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Adicionar Cartão</Text>}
@@ -451,3 +502,4 @@ export default function ProfileScreen() {
         </>
     );
 }
+

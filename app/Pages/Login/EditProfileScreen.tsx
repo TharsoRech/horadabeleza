@@ -11,7 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from "@/constants/theme";
 import { useAuth } from '../../Managers/AuthManager';
 import { UserProfile } from '../../Models/UserProfile';
-import { formatDate } from "@/app/Helpers/FormatStrings";
+import { formatDate, convertToISO8601 } from "@/app/Helpers/FormatStrings";
 
 export default function EditProfileScreen() {
     const insets = useSafeAreaInsets();
@@ -58,9 +58,17 @@ export default function EditProfileScreen() {
             return;
         }
 
+        // Converter data de DD/MM/YYYY (ou outro formato) para YYYY-MM-DD
+        const isoDate = convertToISO8601(dob);
+        
         // Validação extra para garantir que a data seja válida para o SQL Server
-        if (dob) {
-            const birthDateObj = new Date(dob);
+        if (dob && !isoDate) {
+            Alert.alert("Erro", "Data de nascimento inválida. Use o formato DD/MM/YYYY.");
+            return;
+        }
+
+        if (isoDate) {
+            const birthDateObj = new Date(isoDate);
             const minDate = new Date('1753-01-01');
             const maxDate = new Date('9999-12-31');
             
@@ -76,19 +84,28 @@ export default function EditProfileScreen() {
                 ...currentUser,
                 name,
                 email,
-                phone,
+                phone: phone || '',
                 doc,
-                dob,
+                dob: isoDate || dob, // Usar data convertida
                 country,
                 base64Image,
                 password: password || currentUser?.password
             });
 
+            console.log('🔄 Atualizando perfil...', { 
+                name, 
+                email, 
+                phone,
+                dob: isoDate 
+            });
             await updateProfile(updatedUser);
+            console.log('✅ Perfil atualizado!');
             Alert.alert("Sucesso", "Perfil atualizado com sucesso!");
             router.back();
-        } catch (error) {
-            Alert.alert("Erro", "Não foi possível salvar as alterações.");
+        } catch (error: any) {
+            console.error('❌ Erro ao atualizar perfil:', error);
+            const errorMsg = error?.message || "Não foi possível salvar as alterações.";
+            Alert.alert("Erro", errorMsg);
         } finally {
             setIsSaving(false);
         }

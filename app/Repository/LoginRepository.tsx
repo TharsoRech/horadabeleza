@@ -21,6 +21,11 @@ export class LoginRepository implements ILoginRepository {
             if (response.token) {
                 API_CONFIG.setToken(response.token);
             }
+            
+            // Armazena o refresh token se disponível
+            if ((response as any).refreshToken) {
+                API_CONFIG.setRefreshToken((response as any).refreshToken);
+            }
 
             // Retorna o usuário autenticado
             return new UserProfile({
@@ -77,6 +82,11 @@ export class LoginRepository implements ILoginRepository {
             // Se o registro for bem-sucedido, faz login automático
             if (response.token) {
                 API_CONFIG.setToken(response.token);
+            }
+            
+            // Armazena o refresh token se disponível
+            if ((response as any).refreshToken) {
+                API_CONFIG.setRefreshToken((response as any).refreshToken);
             }
 
             return new UserProfile({
