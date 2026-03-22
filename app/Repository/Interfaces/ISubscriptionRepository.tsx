@@ -5,7 +5,9 @@ export interface ISubscriptionRepository {
     getSubscription(): Promise<Subscription>;
     activateTrial(): Promise<void>;
     getAvailablePlans(): Promise<Plan[]>;
-    processPaidSubscription(planId: string): Promise<Subscription>;
+    processPaidSubscription(planId: number, newCardData?: { number: string, expiry: string, cvv: string }): Promise<Subscription>;
+    upgradeSubscription(planId: number, newCardData?: { number: string, expiry: string, cvv: string }): Promise<Subscription>;
+    cancelSubscription(reason?: string): Promise<Subscription>;
     activateFreeTrial(): Promise<Subscription>;
     getSavedCards(): Promise<any[]>;
     saveCard(cardData: any): Promise<void>;

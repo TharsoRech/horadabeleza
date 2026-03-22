@@ -139,25 +139,29 @@ export interface NotificationResponse {
 
 // Tipos de assinaturas
 export interface SubscriptionResponse {
-    id: string;
+    id: string | number;
     isActive: boolean;
     planType: string;
+    planId?: number;
+    planName?: string;
+    status?: string;
     maxClients: number;
     currentClients: number;
     startDate?: string;
     trialStartDate?: string;
     trialEndDate?: string;
     nextBillingDate?: string;
+    canUpgrade?: boolean;
+    canCancel?: boolean;
 }
 
 export interface PlanResponse {
-    id: string;
-    title: string;
-    price: string;
-    desc: string;
-    icon: string;
-    color: string;
-    type: string;
+    id: number;
+    name: string;
+    description: string;
+    price: number;
+    periodDays: number;
+    appointmentLimit: number;
 }
 
 // Tipos de usuários

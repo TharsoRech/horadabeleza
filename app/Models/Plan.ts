@@ -1,8 +1,11 @@
 export interface Plan {
-    id: string;
-    title: string;
-    price: string;
-    desc: string;
+    id: number;
+    name: string;
+    description: string;
+    price: number;
+    periodDays: number;
+    appointmentLimit: number;
+    displayPrice: string;
     icon: string;
     color: string;
     type: 'trial' | 'paid';

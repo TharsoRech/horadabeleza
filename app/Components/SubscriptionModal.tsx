@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SubscriptionModalStyles as styles } from "@/app/Styles/SubscriptionModalStyles";
@@ -11,10 +11,11 @@ interface Props {
     visible: boolean;
     onClose: () => void;
     isTrialEligible: boolean;
+    currentSubscription?: Subscription | null;
     onSubscriptionSuccess: (newSub: Subscription) => void;
 }
 
-export const SubscriptionModal = ({ visible, onClose, isTrialEligible, onSubscriptionSuccess }: Props) => {
+export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSubscription, onSubscriptionSuccess }: Props) => {
     const [plans, setPlans] = useState<Plan[]>([]);
     const [savedCards, setSavedCards] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -24,13 +25,12 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, onSubscri
     // Estado para novo cartão caso não tenha salvo
     const [cardData, setCardData] = useState({ number: '', expiry: '', cvv: '' });
 
-    const subRepo = new SubscriptionRepository();
+    const subRepo = useMemo(() => new SubscriptionRepository(), []);
+    const hasActiveSubscription = Boolean(currentSubscription?.isActive && currentSubscription.planType !== 'none');
+    const canCancelSubscription = currentSubscription?.canCancel ?? hasActiveSubscription;
+    const canUpgradeSubscription = currentSubscription?.canUpgrade ?? hasActiveSubscription;
 
-    useEffect(() => {
-        if (visible) loadInitialData();
-    }, [visible]);
-
-    const loadInitialData = async () => {
+    const loadInitialData = useCallback(async () => {
         setLoading(true);
         try {
             const [plansData, cardsData] = await Promise.all([
@@ -38,7 +38,24 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, onSubscri
                 subRepo.getSavedCards()
             ]);
 
-            const filtered = plansData.filter(p => p.type === 'paid' || (p.type === 'trial' && isTrialEligible));
+            const filtered = plansData.filter((plan) => {
+                if (hasActiveSubscription) {
+                    if (!canUpgradeSubscription) return false;
+
+                    const samePlan = Boolean(
+                        (currentSubscription?.planId && currentSubscription.planId === plan.id) ||
+                        (currentSubscription?.planName && currentSubscription.planName.toLowerCase() === plan.name.toLowerCase())
+                    );
+                    return plan.type === 'paid' && !samePlan;
+                }
+
+                if (plan.type === 'trial') {
+                    return isTrialEligible;
+                }
+
+                return true;
+            });
+
             setPlans(filtered);
             setSavedCards(cardsData || []);
         } catch (e) {
@@ -46,7 +63,11 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, onSubscri
         } finally {
             setLoading(false);
         }
-    };
+    }, [canUpgradeSubscription, currentSubscription?.planId, currentSubscription?.planName, hasActiveSubscription, isTrialEligible, subRepo]);
+
+    useEffect(() => {
+        if (visible) loadInitialData();
+    }, [visible, loadInitialData]);
 
     // --- FORMATAÇÕES ---
     const formatCardNumber = (text: string) => {
@@ -73,18 +94,25 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, onSubscri
         setIsProcessing(true);
         try {
             let updatedSub: Subscription;
+            const newCardPayload = savedCards.length === 0 ? cardData : undefined;
 
-            if (selectedPlan.id === 'trial') {
+            if (selectedPlan.type === 'trial') {
                 updatedSub = await subRepo.activateFreeTrial();
+            } else if (hasActiveSubscription) {
+                updatedSub = await subRepo.upgradeSubscription(selectedPlan.id, newCardPayload);
             } else {
-                // Aqui passamos o ID do plano e, se houver novo cartão, os dados dele
-                updatedSub = await subRepo.processPaidSubscription(selectedPlan.id, cardData);
+                updatedSub = await subRepo.processPaidSubscription(selectedPlan.id, newCardPayload);
             }
 
             onSubscriptionSuccess(updatedSub);
             onClose();
-            Alert.alert("Sucesso!", `${selectedPlan.title} ativado com sucesso.`);
-        } catch (e) {
+            Alert.alert(
+                "Sucesso!",
+                hasActiveSubscription
+                    ? `Upgrade para ${selectedPlan.name} concluído com sucesso.`
+                    : `${selectedPlan.name} ativado com sucesso.`
+            );
+        } catch {
             Alert.alert("Erro", "Não foi possível processar a assinatura. Verifique os dados do cartão.");
         } finally {
             setIsProcessing(false);
@@ -93,14 +121,42 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, onSubscri
         }
     };
 
+    const handleCancelSubscription = () => {
+        Alert.alert(
+            'Cancelar assinatura',
+            'Deseja realmente cancelar sua assinatura atual? Esta ação pode remover benefícios imediatamente.',
+            [
+                { text: 'Voltar', style: 'cancel' },
+                {
+                    text: 'Cancelar assinatura',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setIsProcessing(true);
+                        try {
+                            const updatedSub = await subRepo.cancelSubscription();
+                            onSubscriptionSuccess(updatedSub);
+                            onClose();
+                            Alert.alert('Assinatura cancelada', 'Sua assinatura foi cancelada com sucesso.');
+                        } catch {
+                            Alert.alert('Erro', 'Não foi possível cancelar a assinatura neste momento.');
+                        } finally {
+                            setIsProcessing(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const defaultCard = savedCards.find(c => c.isDefault) || savedCards[0];
+    const currentPlanLabel = currentSubscription?.planName || currentSubscription?.planType?.toUpperCase();
 
     return (
         <Modal visible={visible} transparent animationType="slide">
             <View style={styles.overlay}>
                 <View style={styles.content}>
                     <View style={styles.header}>
-                        <Text style={styles.title}>{selectedPlan ? 'Confirmar Plano' : 'Escolha um Plano'}</Text>
+                        <Text style={styles.title}>{selectedPlan ? 'Confirmar Plano' : hasActiveSubscription ? 'Gerenciar Assinatura' : 'Escolha um Plano'}</Text>
                         <TouchableOpacity onPress={selectedPlan ? () => setSelectedPlan(null) : onClose}>
                             <Ionicons name={selectedPlan ? "arrow-back" : "close"} size={24} color="#333" />
                         </TouchableOpacity>
@@ -110,16 +166,57 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, onSubscri
                         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 30 }} />
                     ) : !selectedPlan ? (
                         <ScrollView showsVerticalScrollIndicator={false}>
-                            <Text style={styles.subtitle}>Sua unidade precisa de uma assinatura ativa para ser publicada no catálogo.</Text>
+                            <Text style={styles.subtitle}>
+                                {hasActiveSubscription
+                                    ? canUpgradeSubscription
+                                        ? `Plano atual: ${currentPlanLabel || 'Ativo'}. Você pode fazer upgrade ou cancelar.`
+                                        : `Plano atual: ${currentPlanLabel || 'Ativo'}. Upgrade indisponível no momento.`
+                                    : 'Sua unidade precisa de uma assinatura ativa para ser publicada no catálogo.'}
+                            </Text>
+
+                            {hasActiveSubscription && canCancelSubscription && (
+                                <TouchableOpacity
+                                    onPress={handleCancelSubscription}
+                                    disabled={isProcessing}
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: '#FFCDD2',
+                                        backgroundColor: '#FFF5F5',
+                                        borderRadius: 12,
+                                        padding: 14,
+                                        marginBottom: 16,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between'
+                                    }}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Ionicons name="close-circle-outline" size={20} color="#E53935" />
+                                        <Text style={{ color: '#E53935', fontWeight: '700' }}>Cancelar assinatura atual</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={18} color="#E53935" />
+                                </TouchableOpacity>
+                            )}
+
+                            {plans.length === 0 && (
+                                <View style={{ paddingVertical: 24 }}>
+                                    <Text style={{ textAlign: 'center', color: '#777' }}>
+                                        {hasActiveSubscription
+                                            ? 'Nenhum plano de upgrade disponível no momento.'
+                                            : 'Nenhum plano disponível agora. Tente novamente em instantes.'}
+                                    </Text>
+                                </View>
+                            )}
+
                             {plans.map((plan) => (
                                 <TouchableOpacity key={plan.id} style={styles.planCard} onPress={() => setSelectedPlan(plan)}>
                                     <View style={[styles.iconBadge, { backgroundColor: plan.color + '20' }]}>
                                         <MaterialCommunityIcons name={plan.icon as any} size={30} color={plan.color} />
                                     </View>
                                     <View style={{ flex: 1, marginLeft: 15 }}>
-                                        <Text style={styles.planTitle}>{plan.title}</Text>
-                                        <Text style={styles.planDesc}>{plan.desc}</Text>
-                                        <Text style={[styles.planPrice, { color: plan.color }]}>{plan.price}</Text>
+                                        <Text style={styles.planTitle}>{plan.name}</Text>
+                                        <Text style={styles.planDesc}>{plan.description}</Text>
+                                        <Text style={[styles.planPrice, { color: plan.color }]}>{plan.displayPrice}</Text>
                                     </View>
                                     <Ionicons name="chevron-forward" size={20} color="#CCC" />
                                 </TouchableOpacity>
@@ -129,8 +226,8 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, onSubscri
                         <View style={{ padding: 10 }}>
                             <View style={styles.summaryBox}>
                                 <Text style={styles.summaryLabel}>Plano Selecionado:</Text>
-                                <Text style={[styles.summaryValue, { color: selectedPlan.color }]}>{selectedPlan.title}</Text>
-                                <Text style={styles.summaryPrice}>{selectedPlan.price}</Text>
+                                <Text style={[styles.summaryValue, { color: selectedPlan.color }]}>{selectedPlan.name}</Text>
+                                <Text style={styles.summaryPrice}>{selectedPlan.displayPrice}</Text>
                             </View>
 
                             {selectedPlan.type === 'paid' ? (
@@ -196,7 +293,11 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, onSubscri
                                     <ActivityIndicator color="#FFF" />
                                 ) : (
                                     <Text style={styles.confirmBtnText}>
-                                        {selectedPlan.type === 'trial' ? 'Começar Teste Grátis' : 'Confirmar Assinatura'}
+                                        {selectedPlan.type === 'trial'
+                                            ? 'Começar Teste Grátis'
+                                            : hasActiveSubscription
+                                                ? 'Confirmar Upgrade'
+                                                : 'Confirmar Assinatura'}
                                     </Text>
                                 )}
                             </TouchableOpacity>

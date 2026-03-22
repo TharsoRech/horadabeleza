@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View, Text, TouchableOpacity, ScrollView, Image,
     TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Modal
@@ -28,8 +28,8 @@ type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 export default function ProfileScreen() {
     const insets = useSafeAreaInsets();
     const { currentUser, logout, isAuthenticated, updateProfile } = useAuth();
-    const subRepo = new SubscriptionRepository();
-    const userRepo = new UserRepository();
+    const subRepo = useMemo(() => new SubscriptionRepository(), []);
+    const userRepo = useMemo(() => new UserRepository(), []);
 
     // --- ESTADOS DE DADOS ---
     const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -123,7 +123,7 @@ export default function ProfileScreen() {
         } catch (error) {
             console.error("Erro ao carregar dados do perfil via API:", error);
         }
-    }, [currentUser?.name, currentUser?.email, currentUser?.doc, currentUser?.dob, currentUser?.country, currentUser?.role, toDobDisplay]);
+    }, [currentUser?.name, currentUser?.email, currentUser?.doc, currentUser?.phone, currentUser?.dob, currentUser?.country, currentUser?.role, toDobDisplay]);
 
     const loadInitialData = useCallback(async () => {
         try {
@@ -142,7 +142,7 @@ export default function ProfileScreen() {
         } finally {
             setLoadingInitial(false);
         }
-    }, [loadUserProfileFromAPI]);
+    }, [loadUserProfileFromAPI, subRepo]);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -177,8 +177,10 @@ export default function ProfileScreen() {
             icon: "alert-circle-outline"
         };
         if (!subscription) return defaultStatus;
-        if (subscription.isActive &&  subscription.planType !== 'trial') {
-            return { label: `PLANO ${subscription.planType.toUpperCase()}`, color: '#4CAF50', icon: "shield-check" as MaterialIconName };
+        const normalizedPlanType = (subscription.planType || '').toLowerCase();
+        if (subscription.isActive && normalizedPlanType !== 'trial' && normalizedPlanType !== 'none') {
+            const planLabel = subscription.planName || subscription.planType;
+            return { label: `PLANO ${String(planLabel).toUpperCase()}`, color: '#4CAF50', icon: "shield-check" as MaterialIconName };
         }
         if (subscription.trialEndDate) {
             const end = new Date(subscription.trialEndDate).getTime();
@@ -302,7 +304,7 @@ export default function ProfileScreen() {
                             } else {
                                 CustomAlert.show("Erro", "Falha ao excluir conta.");
                             }
-                        } catch (error) {
+                        } catch {
                             CustomAlert.show("Erro", "Não foi possível excluir a conta.");
                         } finally {
                             setLoadingAction(false);
@@ -482,6 +484,7 @@ export default function ProfileScreen() {
                 visible={subModalVisible}
                 onClose={() => setSubModalVisible(false)}
                 isTrialEligible={!subscription?.trialStartDate}
+                currentSubscription={subscription}
                 onSubscriptionSuccess={(newSub) => {
                     setSubscription(newSub);
                     loadInitialData();
