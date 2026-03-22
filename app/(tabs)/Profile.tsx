@@ -6,6 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { profileStyles } from "@/app/Styles/profileStyles";
 import { useAuth } from '../Managers/AuthManager';
@@ -121,6 +122,14 @@ export default function ProfileScreen() {
             loadInitialData();
         }
     }, [isAuthenticated, loadInitialData]);
+
+    useFocusEffect(
+        useCallback(() => {
+            if (isAuthenticated) {
+                loadInitialData();
+            }
+        }, [isAuthenticated, loadInitialData])
+    );
 
 
     const formatCardNumber = (text: string) => {
