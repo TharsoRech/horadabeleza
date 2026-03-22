@@ -116,6 +116,35 @@ export class ApiClient {
         }
     }
 
+    private buildHttpError(status: number, statusText: string, errorText: string): Error {
+        let backendMessage = '';
+
+        if (errorText) {
+            try {
+                const parsed = JSON.parse(errorText);
+                if (typeof parsed === 'string') {
+                    backendMessage = parsed;
+                } else if (typeof parsed?.message === 'string') {
+                    backendMessage = parsed.message;
+                } else if (typeof parsed?.error === 'string') {
+                    backendMessage = parsed.error;
+                } else if (typeof parsed?.title === 'string') {
+                    backendMessage = parsed.title;
+                } else if (parsed?.errors && typeof parsed.errors === 'object') {
+                    const firstFieldErrors = Object.values(parsed.errors)[0];
+                    if (Array.isArray(firstFieldErrors) && firstFieldErrors.length > 0) {
+                        backendMessage = String(firstFieldErrors[0]);
+                    }
+                }
+            } catch {
+                backendMessage = errorText.trim();
+            }
+        }
+
+        const normalizedMessage = backendMessage || statusText || 'Erro desconhecido no servidor';
+        return new Error(`HTTP ${status}: ${normalizedMessage}`);
+    }
+
     /**
      * Método GET genérico com retry automático para token expirado
      */
@@ -300,8 +329,8 @@ export class ApiClient {
                     
                     throw new Error('Token expirado. Faça login novamente.');
                 }
-                
-                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
+
+                throw this.buildHttpError(response.status, response.statusText, errorText);
             }
 
             // Verifica se a resposta tem conteúdo antes de tentar parsear JSON

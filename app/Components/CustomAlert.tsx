@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -115,26 +115,33 @@ const styles = StyleSheet.create({
     },
 });
 
-// Global alert state management
-let alertCallbacks: {
-    resolve: (value: boolean) => void;
-    reject: (reason?: any) => void;
-} | null = null;
-
 // Static method to show alert
 CustomAlert.show = (title: string, message: string, buttons?: Array<{ text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }>): Promise<boolean> => {
     return new Promise((resolve, reject) => {
-        alertCallbacks = { resolve, reject };
-        
-        // Trigger the alert through a global event or context
-        // For now, we'll use a simple console warning
-        console.warn('CustomAlert.show() called but no global alert manager is set up');
-        console.log(`Title: ${title}, Message: ${message}`);
-        
-        // Auto-resolve after 3 seconds for now
-        setTimeout(() => {
-            resolve(true);
-        }, 3000);
+        try {
+            if (buttons && buttons.length > 0) {
+                const mappedButtons = buttons.map((button) => ({
+                    text: button.text,
+                    style: button.style,
+                    onPress: () => {
+                        button.onPress?.();
+                        resolve(button.style !== 'cancel');
+                    }
+                }));
+
+                Alert.alert(title, message, mappedButtons, { cancelable: false });
+                return;
+            }
+
+            Alert.alert(title, message, [
+                {
+                    text: 'OK',
+                    onPress: () => resolve(true)
+                }
+            ], { cancelable: false });
+        } catch (error) {
+            reject(error);
+        }
     });
 };
 

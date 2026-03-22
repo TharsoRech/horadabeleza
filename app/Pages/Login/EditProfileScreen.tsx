@@ -25,7 +25,7 @@ export default function EditProfileScreen() {
     const [email, setEmail] = useState(currentUser?.email || '');
     const [phone, setPhone] = useState(currentUser?.phone || '');
     const [doc, setDoc] = useState(currentUser?.doc || '');
-    const [dob, setDob] = useState(currentUser?.dob || '');
+    const [dob, setDob] = useState(currentUser?.dob ? formatDate(currentUser.dob) : '');
     const [country, setCountry] = useState(currentUser?.country || 'Brasil');
     const [imageUri, setImageUri] = useState<string | null>(
         currentUser?.base64Image ? `data:image/jpeg;base64,${currentUser.base64Image}` : null

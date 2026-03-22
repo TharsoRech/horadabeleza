@@ -1,7 +1,8 @@
 import {UserProfile} from "@/app/Models/UserProfile";
 
 export interface IUserRepository {
-    updateProfile(user: UserProfile): Promise<boolean>;
+    getMyProfile(): Promise<UserProfile>;
+    updateProfile(user: UserProfile): Promise<void>;
     deleteAccount(userId: string): Promise<boolean>;
     changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean>;
 }

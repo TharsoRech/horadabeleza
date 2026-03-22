@@ -42,6 +42,12 @@ export default function ProfileScreen() {
     const [subModalVisible, setSubModalVisible] = useState(false);
     const [cardModalVisible, setCardModalVisible] = useState(false);
     const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
+    const [inlineAlert, setInlineAlert] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        onConfirm?: () => void;
+    }>({ visible: false, title: '', message: '' });
 
     // --- ESTADOS DE FORMULÁRIO PERFIL ---
     const [editName, setEditName] = useState(currentUser?.name || '');
@@ -56,6 +62,27 @@ export default function ProfileScreen() {
 
     // --- ESTADO NOVO CARTÃO ---
     const [newCard, setNewCard] = useState({ number: '', expiry: '', cvv: '', name: '' });
+
+    const showInlineAlert = useCallback((title: string, message: string) => {
+        setInlineAlert({ visible: true, title, message });
+    }, []);
+
+    const closeInlineAlert = useCallback(() => {
+        setInlineAlert({ visible: false, title: '', message: '' });
+    }, []);
+
+    const toDobDisplay = useCallback((value?: string) => {
+        if (!value) return '';
+
+        // Evita efeito de fuso horário ao converter datas ISO puras (YYYY-MM-DD)
+        const isoDateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoDateMatch) {
+            const [, year, month, day] = isoDateMatch;
+            return `${day}/${month}/${year}`;
+        }
+
+        return formatDate(value);
+    }, []);
 
     const loadUserProfileFromAPI = useCallback(async () => {
         try {
@@ -76,14 +103,14 @@ export default function ProfileScreen() {
             }
 
             const userData = await response.json();
-            
+            console.log(userData)
             // Mapear dados do API para os campos do formulário
             if (userData) {
                 setEditName(userData.name || currentUser?.name || '');
                 setEditEmail(userData.email || currentUser?.email || '');
                 setEditCpf(userData.doc ? formatCPF(userData.doc) : currentUser?.doc ? formatCPF(currentUser.doc) : '');
                 setEditPhone(userData.phone || currentUser?.phone || '');
-                setEditDob(userData.dob ? formatDate(userData.dob) : currentUser?.dob ? formatDate(currentUser.dob) : '');
+                setEditDob(userData.dob ? toDobDisplay(userData.dob) : currentUser?.dob ? toDobDisplay(currentUser.dob) : '');
                 setEditCountry(userData.country || currentUser?.country || '');
                 setEditRole(userData.role || currentUser?.role || UserRole.CLIENT);
                 
@@ -96,7 +123,7 @@ export default function ProfileScreen() {
         } catch (error) {
             console.error("Erro ao carregar dados do perfil via API:", error);
         }
-    }, [currentUser?.name, currentUser?.email, currentUser?.doc, currentUser?.dob, currentUser?.country, currentUser?.role]);
+    }, [currentUser?.name, currentUser?.email, currentUser?.doc, currentUser?.dob, currentUser?.country, currentUser?.role, toDobDisplay]);
 
     const loadInitialData = useCallback(async () => {
         try {
@@ -143,14 +170,6 @@ export default function ProfileScreen() {
         return cleaned;
     };
 
-    // Formatar data enquanto digita: DD/MM/YYYY
-    const formatDateInput = (text: string) => {
-        const cleaned = text.replace(/\D/g, '');
-        if (cleaned.length <= 2) return cleaned;
-        if (cleaned.length <= 4) return `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`;
-        return `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}/${cleaned.slice(4, 8)}`;
-    };
-
     const getSubscriptionStatus = () => {
         const defaultStatus: { label: string, color: string, icon: MaterialIconName } = {
             label: "Nenhum Plano Ativo",
@@ -173,7 +192,7 @@ export default function ProfileScreen() {
     const subStatus = getSubscriptionStatus();
 
     // Função auxiliar para converter DD/MM/YYYY para YYYY-MM-DD
-    const handleUpdate = async () => {
+    const handleUpdate = useCallback(async () => {
         if (!currentUser) return;
         setLoadingAction(true);
         
@@ -191,7 +210,9 @@ export default function ProfileScreen() {
         
         try {
             // Converter data de DD/MM/YYYY (ou outro formato) para YYYY-MM-DD
-            const formattedDob = convertToISO8601(editDob);
+            const normalizedDobInput = (editDob || '').trim();
+            const hasDobDigits = /\d/.test(normalizedDobInput);
+            const formattedDob = hasDobDigits ? convertToISO8601(normalizedDobInput) : '';
             
             console.log('🔄 Iniciando atualização de perfil...', {
                 name: editName,
@@ -203,9 +224,8 @@ export default function ProfileScreen() {
             });
             
             // Validar data
-            if (editDob && !formattedDob) {
-                await CustomAlert.show("Erro", "Data de nascimento inválida. Use formato DD/MM/YYYY.");
-                setLoadingAction(false);
+            if (hasDobDigits && !formattedDob) {
+                showInlineAlert("Erro", `Data de nascimento inválida (${normalizedDobInput}). Use formato DD/MM/YYYY.`);
                 return;
             }
             
@@ -214,7 +234,7 @@ export default function ProfileScreen() {
                 name: editName,
                 email: editEmail,
                 doc: editCpf.replace(/\D/g, ''), // Remover máscara do CPF
-                dob: formattedDob || editDob, // Usar formato convertido
+                dob: formattedDob || '',
                 country: editCountry,
                 role: editRole,
                 base64Image: base64Image,
@@ -226,7 +246,7 @@ export default function ProfileScreen() {
             
             console.log('✅ Perfil atualizado com sucesso!');
             setIsEditing(false);
-            await CustomAlert.show("Sucesso", "Perfil atualizado com sucesso.");
+            showInlineAlert("Sucesso", "Perfil atualizado com sucesso.");
         } catch (e: any) {
             // Rollback: restaurar os valores anteriores em caso de erro
             console.error("❌ Erro ao atualizar perfil:", {
@@ -244,11 +264,23 @@ export default function ProfileScreen() {
             
             const errorMessage = e?.message || "Erro ao atualizar perfil. Verifique sua conexão e tente novamente.";
             console.log('💬 Exibindo erro:', errorMessage);
-            await CustomAlert.show("Erro", errorMessage);
+            showInlineAlert("Erro", errorMessage);
         } finally {
             setLoadingAction(false);
         }
-    };
+    }, [
+        base64Image,
+        currentUser,
+        editCountry,
+        editCpf,
+        editDob,
+        editEmail,
+        editName,
+        editPhone,
+        editRole,
+        showInlineAlert,
+        updateProfile
+    ]);
 
     const handleDeleteAccount = () => {
         if (!currentUser) return;
@@ -386,7 +418,7 @@ export default function ProfileScreen() {
                                         </View>
                                     </View>
                                     <View style={{ flexDirection: 'row', gap: 10 }}>
-                                        <View style={{ flex: 1 }}><Text style={profileStyles.label}>Nascimento</Text><TextInput style={profileStyles.input} value={editDob} onChangeText={v => setEditDob(formatDateInput(v))} keyboardType="numeric" placeholder="DD/MM/YYYY" maxLength={10} /></View>
+                                        <View style={{ flex: 1 }}><Text style={profileStyles.label}>Nascimento</Text><TextInput style={profileStyles.input} value={editDob} onChangeText={v => setEditDob(formatDate(v))} keyboardType="numeric" placeholder="DD/MM/YYYY" maxLength={10} /></View>
                                         <View style={{ flex: 1 }}><Text style={profileStyles.label}>País</Text><TextInput style={profileStyles.input} value={editCountry} onChangeText={setEditCountry} /></View>
                                     </View>
 
@@ -507,6 +539,13 @@ export default function ProfileScreen() {
                     const success = await userRepo.changePassword(currentUser.id, currentPassword, newPassword);
                     if (!success) throw new Error("Falha ao alterar senha");
                 }}
+            />
+
+            <CustomAlert
+                visible={inlineAlert.visible}
+                title={inlineAlert.title}
+                message={inlineAlert.message}
+                onConfirm={closeInlineAlert}
             />
         </>
     );

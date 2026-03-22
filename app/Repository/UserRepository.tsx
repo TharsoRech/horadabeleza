@@ -3,7 +3,24 @@ import { IUserRepository } from "./Interfaces/IUserRepository";
 import { apiClient } from "@/app/Utils/apiClient";
 
 export class UserRepository implements IUserRepository {
-    async updateProfile(user: UserProfile): Promise<boolean> {
+    async getMyProfile(): Promise<UserProfile> {
+        const response = await apiClient.get<any>('/auth/me');
+
+        return new UserProfile({
+            id: String(response?.id ?? ''),
+            name: response?.name,
+            email: response?.email,
+            phone: response?.phone,
+            doc: response?.doc,
+            dob: response?.dob,
+            country: response?.country,
+            base64Image: response?.base64Image,
+            photoUrl: response?.photoUrl,
+            role: response?.role,
+        });
+    }
+
+    async updateProfile(user: UserProfile): Promise<void> {
         try {
             console.log('📤 Enviando atualização de perfil para API...', {
                 endpoint: '/auth/me',
@@ -23,6 +40,7 @@ export class UserRepository implements IUserRepository {
                 name: user.name,
                 email: user.email,
                 phone: user.phone,
+                photoUrl: user.photoUrl,
                 doc: user.doc,
                 dob: user.dob,
                 country: user.country,
@@ -31,14 +49,15 @@ export class UserRepository implements IUserRepository {
             });
 
             console.log('✅ Perfil atualizado com sucesso na API:', response);
-            return true;
         } catch (error: any) {
             console.error('❌ Erro ao atualizar perfil no back-end:', {
                 message: error?.message,
                 error: error,
                 stack: error?.stack
             });
-            return false;
+
+            const message = error?.message || 'Falha ao atualizar perfil no servidor.';
+            throw new Error(message);
         }
     }
 

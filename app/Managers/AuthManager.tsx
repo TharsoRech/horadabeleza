@@ -178,9 +178,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const updateProfile = async (updatedProfile: UserProfile) => {
-        const success = await userRepository.updateProfile(updatedProfile);
-        if (!success) throw new Error("Erro servidor");
-        const clean = JSON.parse(JSON.stringify(updatedProfile));
+        await userRepository.updateProfile(updatedProfile);
+        const serverProfile = await userRepository.getMyProfile();
+        const clean = JSON.parse(JSON.stringify(serverProfile));
         await CacheManager.save(profileKey, { profile: clean, timestamp: Date.now() });
         setCurrentUser(clean);
     };

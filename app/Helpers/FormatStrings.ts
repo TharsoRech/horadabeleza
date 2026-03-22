@@ -15,9 +15,81 @@ export const formatDoc = (v: string, role: UserRole) => {
     return v.length <= 14 ? formatCPF(v) : formatCNPJ(v);
 };
 
+const isValidDateParts = (day: number, month: number, year: number): boolean => {
+    if (year < 1753 || year > 9999) return false;
+    if (month < 1 || month > 12) return false;
+    if (day < 1 || day > 31) return false;
+
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+};
+
+const parseDateParts = (input: string): { day: number; month: number; year: number } | null => {
+    if (!input) return null;
+
+    const value = input.trim();
+
+    // Matches yyyy-mm-dd or yyyy/mm/dd, ignoring trailing time (e.g. 2025-07-19 00:00:00)
+    const isoLikeMatch = value.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    if (isoLikeMatch) {
+        const year = parseInt(isoLikeMatch[1], 10);
+        const month = parseInt(isoLikeMatch[2], 10);
+        const day = parseInt(isoLikeMatch[3], 10);
+        if (isValidDateParts(day, month, year)) return { day, month, year };
+    }
+
+    // Matches dd/mm/yyyy or mm/dd/yyyy with heuristic swap when needed
+    const slashLikeMatch = value.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+    if (slashLikeMatch) {
+        const first = parseInt(slashLikeMatch[1], 10);
+        const second = parseInt(slashLikeMatch[2], 10);
+        const year = parseInt(slashLikeMatch[3], 10);
+
+        // Prefer BR format (dd/mm), but accept US format when second part cannot be month.
+        let day = first;
+        let month = second;
+        if (first <= 12 && second > 12) {
+            day = second;
+            month = first;
+        }
+
+        if (isValidDateParts(day, month, year)) return { day, month, year };
+    }
+
+    const digits = value.replace(/\D/g, '');
+    if (digits.length < 8) return null;
+
+    const first8 = digits.slice(0, 8);
+    const yearFirst = parseInt(first8.slice(0, 4), 10);
+    const monthFirst = parseInt(first8.slice(4, 6), 10);
+    const dayFirst = parseInt(first8.slice(6, 8), 10);
+    if (isValidDateParts(dayFirst, monthFirst, yearFirst)) {
+        return { day: dayFirst, month: monthFirst, year: yearFirst };
+    }
+
+    const day = parseInt(first8.slice(0, 2), 10);
+    const month = parseInt(first8.slice(2, 4), 10);
+    const year = parseInt(first8.slice(4, 8), 10);
+    if (isValidDateParts(day, month, year)) {
+        return { day, month, year };
+    }
+
+    return null;
+};
+
 export const formatDate = (v: string) => {
-    v = v.replace(/\D/g, "");
-    return v.replace(/(\d{2})(\d{2})(\d{4})/, "$1/$2/$3").substring(0, 10);
+    if (!v) return "";
+
+    const parsed = parseDateParts(v);
+    if (parsed) {
+        return `${String(parsed.day).padStart(2, '0')}/${String(parsed.month).padStart(2, '0')}/${parsed.year}`;
+    }
+
+    const digits = v.trim().replace(/\D/g, '');
+
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2, 4)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
 };
 
 /**
@@ -25,66 +97,8 @@ export const formatDate = (v: string) => {
  * Suporta: DD/MM/YYYY, YYYY-MM-DD, DDMMYYYY, YYYYMMDD
  */
 export const convertToISO8601 = (dateStr: string): string => {
-    if (!dateStr) return '';
-    
-    // Remove espaços
-    dateStr = dateStr.trim();
-    
-    // Remove caracteres especiais, mantendo apenas números e hífens/barras
-    const onlyNums = dateStr.replace(/[^\d\-\/]/g, '');
-    const cleaned = onlyNums.replace(/\D/g, '');
-    
-    console.log('📅 convertToISO8601 - input:', dateStr, '-> cleaned:', cleaned);
-    
-    if (cleaned.length !== 8) {
-        console.warn('⚠️ Data com comprimento inválido:', cleaned.length, 'esperado: 8');
-        return '';
-    }
-    
-    let day, month, year;
-    
-    // Detectar formato
-    if (dateStr.includes('-') || dateStr.includes('/')) {
-        // Formato com separadores: verificar se é DD/MM/YYYY ou YYYY-MM-DD
-        const parts = dateStr.split(/[-\/]/);
-        
-        if (parts.length !== 3) {
-            console.warn('⚠️ Formato de data inválido:', dateStr);
-            return '';
-        }
-        
-        if (parts[0].length === 4) {
-            // YYYY-MM-DD ou YYYY/MM/DD
-            year = parts[0];
-            month = parts[1];
-            day = parts[2];
-        } else {
-            // DD/MM/YYYY ou DD-MM-YYYY
-            day = parts[0];
-            month = parts[1];
-            year = parts[2];
-        }
-    } else {
-        // Sem separadores: assumir DDMMYYYY (8 dígitos)
-        day = cleaned.substring(0, 2);
-        month = cleaned.substring(2, 4);
-        year = cleaned.substring(4, 8);
-    }
-    
-    // Validar valores
-    const dayNum = parseInt(day);
-    const monthNum = parseInt(month);
-    const yearNum = parseInt(year);
-    
-    console.log('📅 Componentes detectados:', { day, month, year, dayNum, monthNum, yearNum });
-    
-    if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12 || yearNum < 1753) {
-        console.warn('⚠️ Valores de data inválidos');
-        return '';
-    }
-    
-    // Retorna YYYY-MM-DD
-    const result = `${year}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-    console.log('✅ Data convertida para ISO8601:', result);
-    return result;
+    const parsed = parseDateParts(dateStr);
+    if (!parsed) return '';
+
+    return `${parsed.year}-${String(parsed.month).padStart(2, '0')}-${String(parsed.day).padStart(2, '0')}`;
 };
