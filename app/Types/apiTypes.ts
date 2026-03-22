@@ -143,10 +143,10 @@ export interface NotificationResponse {
 export interface SubscriptionResponse {
     id: string | number;
     isActive: boolean;
-    planType: string;
+    planType: string | number;
     planId?: number;
     planName?: string;
-    status?: string;
+    status?: string | number;
     maxClients: number;
     currentClients: number;
     startDate?: string;

@@ -34,7 +34,14 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
 
     const subRepo = useMemo(() => new SubscriptionRepository(), []);
     const hasActiveSubscription = Boolean(currentSubscription?.isActive && currentSubscription.planType !== 'none');
-    const canCancelSubscription = currentSubscription?.canCancel ?? hasActiveSubscription;
+    const normalizedCurrentPlanType = (currentSubscription?.planType || '').toLowerCase();
+    const normalizedCurrentPlanName = (currentSubscription?.planName || '').toLowerCase();
+    const isFreeLikeCurrentPlan =
+        normalizedCurrentPlanType === 'trial' ||
+        normalizedCurrentPlanName.includes('starter') ||
+        normalizedCurrentPlanName.includes('free') ||
+        normalizedCurrentPlanName.includes('trial');
+    const canCancelSubscription = (currentSubscription?.canCancel ?? hasActiveSubscription) && !isFreeLikeCurrentPlan;
     const canUpgradeSubscription = currentSubscription?.canUpgrade ?? hasActiveSubscription;
 
     const showInlineAlert = useCallback((
@@ -87,6 +94,15 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
     useEffect(() => {
         if (visible) loadInitialData();
     }, [visible, loadInitialData]);
+
+    useEffect(() => {
+        if (!visible) {
+            // Garante que nenhum overlay local continue bloqueando toques na Profile.
+            closeInlineAlert();
+            setSelectedPlan(null);
+            setIsProcessing(false);
+        }
+    }, [visible, closeInlineAlert]);
 
     // --- FORMATAÇÕES ---
     const formatCardNumber = (text: string) => {
@@ -144,8 +160,10 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
                 updatedSub = await subRepo.processPaidSubscription(selectedPlan.id, newCardPayload);
             }
 
-            await onSubscriptionSuccess(updatedSub);
             onClose();
+            Promise.resolve(onSubscriptionSuccess(updatedSub)).catch((syncError) => {
+                console.error('Erro ao sincronizar assinatura após confirmação:', syncError);
+            });
         } catch (error) {
             console.error('❌ Falha ao confirmar assinatura:', error);
             showInlineAlert('Erro', getErrorMessage(error));
@@ -157,6 +175,11 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
     };
 
     const handleCancelSubscription = () => {
+        if (isFreeLikeCurrentPlan) {
+            showInlineAlert('Plano Free', 'Planos Starter/Free nao podem ser cancelados.');
+            return;
+        }
+
         showInlineAlert(
             'Cancelar assinatura',
             'Deseja realmente cancelar sua assinatura atual? Esta ação pode remover benefícios imediatamente.',
@@ -169,8 +192,10 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
                         setIsProcessing(true);
                         try {
                             const updatedSub = await subRepo.cancelSubscription();
-                            await onSubscriptionSuccess(updatedSub);
                             onClose();
+                            Promise.resolve(onSubscriptionSuccess(updatedSub)).catch((syncError) => {
+                                console.error('Erro ao sincronizar assinatura após cancelamento:', syncError);
+                            });
                         } catch {
                             showInlineAlert('Erro', 'Não foi possível cancelar a assinatura neste momento.');
                         } finally {
@@ -341,7 +366,7 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
             </View>
 
             <CustomAlert
-                visible={inlineAlert.visible}
+                visible={visible && inlineAlert.visible}
                 title={inlineAlert.title}
                 message={inlineAlert.message}
                 buttons={inlineAlert.buttons}

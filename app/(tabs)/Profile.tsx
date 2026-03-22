@@ -169,10 +169,11 @@ export default function ProfileScreen() {
             const freshCardsPromise = subRepo.getSavedCards();
 
             let backendSubscription: Subscription;
-            if (newSub.planId && newSub.planId > 0) {
-                // Garante assinatura ativa para o plano selecionado (cria se não existir).
+            if (newSub.isActive && newSub.planId && newSub.planId > 0) {
+                // Garante assinatura ativa somente em fluxo de ativação/upgrade.
                 backendSubscription = await subRepo.ensureSubscriptionExists(newSub.planId);
             } else {
+                // Em cancelamento ou ausência de plano, apenas reflete o estado atual do backend.
                 backendSubscription = await subRepo.getSubscription();
             }
 
@@ -185,8 +186,13 @@ export default function ProfileScreen() {
 
     const handleModalSubscriptionSuccess = useCallback(async (newSub: Subscription) => {
         await handleSubscriptionSuccess(newSub);
-        showInlineAlert('Sucesso', 'Assinatura atualizada com sucesso.');
-    }, [handleSubscriptionSuccess, showInlineAlert]);
+    }, [handleSubscriptionSuccess]);
+
+    const handleCloseSubscriptionModal = useCallback(() => {
+        setSubModalVisible(false);
+        // Evita overlay residual da Profile após fechar modal de assinatura.
+        closeInlineAlert();
+    }, [closeInlineAlert]);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -222,15 +228,18 @@ export default function ProfileScreen() {
         };
         if (!subscription) return defaultStatus;
         const normalizedPlanType = (subscription.planType || '').toLowerCase();
-        if (subscription.isActive && normalizedPlanType !== 'trial' && normalizedPlanType !== 'none') {
-            const planLabel = subscription.planName || subscription.planType;
+        if (subscription.isActive) {
+            if (normalizedPlanType === 'trial' && subscription.trialEndDate) {
+                const end = new Date(subscription.trialEndDate).getTime();
+                const now = new Date().getTime();
+                const daysLeft = Math.max(0, Math.ceil((end - now) / (1000 * 3600 * 24)));
+                if (daysLeft > 0) {
+                    return { label: `PLANO FREE (${daysLeft} dias rest.)`, color: '#FF9800', icon: "clock-outline" as MaterialIconName };
+                }
+            }
+
+            const planLabel = subscription.planName || (normalizedPlanType !== 'none' ? subscription.planType : 'Ativo');
             return { label: `PLANO ${String(planLabel).toUpperCase()}`, color: '#4CAF50', icon: "shield-check" as MaterialIconName };
-        }
-        if (subscription.trialEndDate) {
-            const end = new Date(subscription.trialEndDate).getTime();
-            const now = new Date().getTime();
-            const daysLeft = Math.max(0, Math.ceil((end - now) / (1000 * 3600 * 24)));
-            if (daysLeft > 0) return { label: `PLANO FREE (${daysLeft} dias rest.)`, color: '#FF9800', icon: "clock-outline" as MaterialIconName };
         }
         return defaultStatus;
     };
@@ -532,7 +541,7 @@ export default function ProfileScreen() {
             {isProfessional && (
                 <SubscriptionModal
                     visible={subModalVisible}
-                    onClose={() => setSubModalVisible(false)}
+                    onClose={handleCloseSubscriptionModal}
                     isTrialEligible={!subscription?.trialStartDate}
                     currentSubscription={subscription}
                     onSubscriptionSuccess={handleModalSubscriptionSuccess}
@@ -593,7 +602,7 @@ export default function ProfileScreen() {
             />
 
             <CustomAlert
-                visible={inlineAlert.visible}
+                visible={inlineAlert.visible && !subModalVisible}
                 title={inlineAlert.title}
                 message={inlineAlert.message}
                 buttons={inlineAlert.buttons}

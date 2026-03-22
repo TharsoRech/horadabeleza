@@ -5,14 +5,38 @@ import { apiClient } from "@/app/Utils/apiClient";
 import { SubscriptionResponse, PlanResponse } from "@/app/Types/apiTypes";
 
 export class SubscriptionRepository implements ISubscriptionRepository {
+    private normalizePlanType(value: unknown): string {
+        if (typeof value === 'string') {
+            const normalized = value.trim().toLowerCase();
+            if (normalized === 'trial') return 'trial';
+            if (normalized === 'basic' || normalized === 'premium' || normalized === 'paid') return 'paid';
+            if (normalized) return normalized;
+        }
+
+        if (typeof value === 'number') {
+            // .NET enum PlanType: None=0, Trial=1, Basic=2, Premium=3
+            if (value === 1) return 'trial';
+            if (value === 2 || value === 3) return 'paid';
+            return 'none';
+        }
+
+        return 'none';
+    }
+
     private mapSubscription(response: SubscriptionResponse): Subscription {
+        const normalizedPlanType = this.normalizePlanType(response.planType);
+        const effectivePlanType =
+            normalizedPlanType === 'none' && Boolean(response.isActive) && Number(response.planId || 0) > 0
+                ? 'paid'
+                : normalizedPlanType;
+
         return {
             id: String(response.id),
             isActive: Boolean(response.isActive),
-            planType: (response.planType || 'none').toLowerCase(),
+            planType: effectivePlanType,
             planId: response.planId,
             planName: response.planName,
-            status: response.status,
+            status: typeof response.status === 'number' ? String(response.status) : response.status,
             maxClients: response.maxClients ?? 0,
             currentClients: response.currentClients ?? 0,
             startDate: response.startDate,
