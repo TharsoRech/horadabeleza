@@ -594,6 +594,7 @@ export default function ProfileScreen() {
             <ChangePasswordModal
                 visible={changePasswordModalVisible}
                 onClose={() => setChangePasswordModalVisible(false)}
+                onSuccess={() => showInlineAlert("Sucesso", "Senha alterada com sucesso! Outros dispositivos podem precisar fazer login novamente.")}
                 onPasswordChange={async (currentPassword, newPassword) => {
                     if (!currentUser) throw new Error("Usuário não autenticado");
                     const success = await userRepo.changePassword(currentUser.id, currentPassword, newPassword);

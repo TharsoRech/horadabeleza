@@ -2,6 +2,7 @@ import { UserProfile } from "../Models/UserProfile";
 import { IUserRepository } from "./Interfaces/IUserRepository";
 import { apiClient } from "@/app/Utils/apiClient";
 import { mapApiTypeToUserRole, mapUserRoleToApiType } from "@/app/Helpers/userRoleMapper";
+import { hashPassword } from "@/app/Utils/passwordHash";
 
 export class UserRepository implements IUserRepository {
     async getMyProfile(): Promise<UserProfile> {
@@ -77,15 +78,23 @@ export class UserRepository implements IUserRepository {
         }
     }
 
-    async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
+    async changePassword(_userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
         try {
             console.log('📤 Alterando senha...');
-            // Usar endpoint de update de perfil com campos de senha se disponível
-            // Ou criar um endpoint específico no backend
-            await apiClient.put(`/auth/me`, {
-                currentPassword,
-                newPassword
+            const [currentPasswordHash, newPasswordHash] = await Promise.all([
+                hashPassword(currentPassword),
+                hashPassword(newPassword)
+            ]);
+
+            const response = await apiClient.put<{ changed?: boolean; sessionsRevoked?: boolean }>(`/auth/me/password`, {
+                currentPassword: currentPasswordHash,
+                newPassword: newPasswordHash,
+                legacyCurrentPassword: currentPassword  // fallback para hashes legados (BCrypt direto)
             });
+
+            if (response?.sessionsRevoked) {
+                console.log('🔒 Sessões em outros dispositivos foram encerradas por segurança.');
+            }
             console.log('✅ Senha alterada com sucesso');
             return true;
         } catch (error: any) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
     View, Text, TouchableOpacity, Modal, TextInput
 } from 'react-native';
@@ -10,12 +10,14 @@ interface ChangePasswordModalProps {
     visible: boolean;
     onClose: () => void;
     onPasswordChange: (currentPassword: string, newPassword: string) => Promise<void>;
+    onSuccess?: () => void;
 }
 
 export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     visible,
     onClose,
-    onPasswordChange
+    onPasswordChange,
+    onSuccess
 }) => {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -23,46 +25,62 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [alert, setAlert] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+    }>({ visible: false, title: '', message: '' });
+
+    const showAlert = useCallback((title: string, message: string) => {
+        setAlert({ visible: true, title, message });
+    }, []);
+
+    const closeAlert = useCallback(() => {
+        setAlert({ visible: false, title: '', message: '' });
+    }, []);
+
+    const clearFields = useCallback(() => {
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+    }, []);
 
     const handleConfirm = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
-            await CustomAlert.show("Erro", "Por favor, preencha todos os campos.");
+            showAlert("Erro", "Por favor, preencha todos os campos.");
             return;
         }
 
         if (newPassword !== confirmPassword) {
-            await CustomAlert.show("Erro", "As senhas novas não coincidem.");
+            showAlert("Erro", "As senhas novas não coincidem.");
             return;
         }
 
         if (newPassword.length < 6) {
-            await CustomAlert.show("Erro", "A senha deve ter pelo menos 6 caracteres.");
+            showAlert("Erro", "A senha deve ter pelo menos 6 caracteres.");
             return;
         }
 
         setLoading(true);
         try {
             await onPasswordChange(currentPassword, newPassword);
-            await CustomAlert.show("Sucesso", "Senha alterada com sucesso!");
+            // Fecha o modal ANTES de notificar o pai — evita conflito de dois Modals fechando
+            // simultaneamente (que causa o travamento da tela).
+            clearFields();
             onClose();
-            // Limpa os campos
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
-        } catch (error) {
+            onSuccess?.();
+        } catch (error: any) {
             console.error("Erro ao alterar senha:", error);
-            await CustomAlert.show("Erro", "Falha ao alterar senha. Por favor, tente novamente.");
+            const msg = error?.message || "Falha ao alterar senha. Por favor, tente novamente.";
+            showAlert("Erro", msg);
         } finally {
             setLoading(false);
         }
     };
 
     const handleClose = () => {
+        clearFields();
         onClose();
-        // Limpa os campos ao fechar
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
     };
 
     return (
@@ -275,6 +293,13 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                     </View>
                 </View>
             </View>
+
+            <CustomAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                onConfirm={closeAlert}
+            />
         </Modal>
     );
 };
