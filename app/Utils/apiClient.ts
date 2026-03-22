@@ -55,8 +55,7 @@ export class ApiClient {
             const response = await fetch(`${this.baseURL}/auth/refresh`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${API_CONFIG.getToken()}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     refreshToken: API_CONFIG.getRefreshToken()
@@ -94,7 +93,17 @@ export class ApiClient {
     }
 
     private shouldAttemptRefresh(status: number, retryCount: number): boolean {
-        return retryCount === 0 && (status === 401 || status === 404);
+        return retryCount === 0 && status === 401;
+    }
+
+    private async handleAuthFailure(): Promise<void> {
+        if (!API_CONFIG.onLogoutCallback) return;
+
+        try {
+            await API_CONFIG.onLogoutCallback();
+        } catch (error) {
+            console.error('❌ Falha ao executar logout automático:', error);
+        }
     }
 
 
@@ -176,6 +185,8 @@ export class ApiClient {
                     if (refreshed) {
                         return this.get<T>(endpoint, headers, retryCount + 1);
                     }
+
+                    await this.handleAuthFailure();
                 }
 
                 throw this.buildHttpError(response.status, response.statusText, errorText);
@@ -234,6 +245,8 @@ export class ApiClient {
                     if (refreshed) {
                         return this.post<T>(endpoint, data, headers, retryCount + 1);
                     }
+
+                    await this.handleAuthFailure();
                 }
 
                 throw this.buildHttpError(response.status, response.statusText, errorText);
@@ -292,6 +305,8 @@ export class ApiClient {
                     if (refreshed) {
                         return this.put<T>(endpoint, data, headers, retryCount + 1);
                     }
+
+                    await this.handleAuthFailure();
                 }
 
                 throw this.buildHttpError(response.status, response.statusText, errorText);
@@ -355,6 +370,8 @@ export class ApiClient {
                     if (refreshed) {
                         return this.delete<T>(endpoint, headers, retryCount + 1);
                     }
+
+                    await this.handleAuthFailure();
                 }
 
                 throw this.buildHttpError(response.status, response.statusText, errorText);
@@ -416,6 +433,8 @@ export class ApiClient {
                     if (refreshed) {
                         return this.upload<T>(endpoint, formData, headers, retryCount + 1);
                     }
+
+                    await this.handleAuthFailure();
                 }
 
                 throw this.buildHttpError(response.status, response.statusText, errorText);

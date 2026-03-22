@@ -58,6 +58,17 @@ export class SubscriptionRepository implements ISubscriptionRepository {
         }
     }
 
+    async ensureSubscriptionExists(planId: number): Promise<Subscription> {
+        try {
+            const response: SubscriptionResponse = await apiClient.post('/subscriptions/ensure', { planId });
+            return this.mapSubscription(response);
+        } catch (error) {
+            console.error('Ensure subscription error:', error);
+            // Fallback seguro para manter a UI funcional mesmo se o endpoint novo falhar.
+            return this.getSubscription();
+        }
+    }
+
     async getAvailablePlans(): Promise<Plan[]> {
         try {
             const response: PlanResponse[] = await apiClient.get('/plans');

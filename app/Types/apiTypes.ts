@@ -12,6 +12,7 @@ export interface LoginResponse {
     dob?: string;
     country?: string;
     token: string;
+    refreshToken?: string;
     base64Image?: string;
 }
 

@@ -47,8 +47,8 @@ export default function ProfileScreen() {
         visible: boolean;
         title: string;
         message: string;
-        onConfirm?: () => void;
-    }>({ visible: false, title: '', message: '' });
+        buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[];
+    }>({ visible: false, title: '', message: '', buttons: undefined });
 
     // --- ESTADOS DE FORMULÁRIO PERFIL ---
     const [editName, setEditName] = useState(currentUser?.name || '');
@@ -64,12 +64,16 @@ export default function ProfileScreen() {
     // --- ESTADO NOVO CARTÃO ---
     const [newCard, setNewCard] = useState({ number: '', expiry: '', cvv: '', name: '' });
 
-    const showInlineAlert = useCallback((title: string, message: string) => {
-        setInlineAlert({ visible: true, title, message });
+    const showInlineAlert = useCallback((
+        title: string,
+        message: string,
+        buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[]
+    ) => {
+        setInlineAlert({ visible: true, title, message, buttons });
     }, []);
 
     const closeInlineAlert = useCallback(() => {
-        setInlineAlert({ visible: false, title: '', message: '' });
+        setInlineAlert({ visible: false, title: '', message: '', buttons: undefined });
     }, []);
 
     const toDobDisplay = useCallback((value?: string) => {
@@ -156,6 +160,34 @@ export default function ProfileScreen() {
         }
     }, [loadUserProfileFromAPI, subRepo]);
 
+    const handleSubscriptionSuccess = useCallback(async (newSub: Subscription) => {
+        // Atualiza imediatamente a UI para refletir o sucesso retornado pelo modal.
+        setSubscription(newSub);
+
+        // Sincroniza com o backend de forma determinística, sem polling local.
+        try {
+            const freshCardsPromise = subRepo.getSavedCards();
+
+            let backendSubscription: Subscription;
+            if (newSub.planId && newSub.planId > 0) {
+                // Garante assinatura ativa para o plano selecionado (cria se não existir).
+                backendSubscription = await subRepo.ensureSubscriptionExists(newSub.planId);
+            } else {
+                backendSubscription = await subRepo.getSubscription();
+            }
+
+            setSubscription(backendSubscription);
+            setSavedCards((await freshCardsPromise) || []);
+        } catch (error) {
+            console.error('Erro ao sincronizar assinatura após sucesso:', error);
+        }
+    }, [subRepo]);
+
+    const handleModalSubscriptionSuccess = useCallback(async (newSub: Subscription) => {
+        await handleSubscriptionSuccess(newSub);
+        showInlineAlert('Sucesso', 'Assinatura atualizada com sucesso.');
+    }, [handleSubscriptionSuccess, showInlineAlert]);
+
     useEffect(() => {
         if (isAuthenticated) {
             loadInitialData();
@@ -204,7 +236,7 @@ export default function ProfileScreen() {
     };
 
     const subStatus = getSubscriptionStatus();
-    const isProfessional = (currentUser?.role || editRole) === UserRole.PROFISSIONAL;
+    const isProfessional = editRole === UserRole.PROFISSIONAL;
 
     // Função auxiliar para converter DD/MM/YYYY para YYYY-MM-DD
     const handleUpdate = useCallback(async () => {
@@ -299,7 +331,7 @@ export default function ProfileScreen() {
 
     const handleDeleteAccount = () => {
         if (!currentUser) return;
-        CustomAlert.show(
+        showInlineAlert(
             "Excluir Conta",
             "Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.",
             [
@@ -313,12 +345,12 @@ export default function ProfileScreen() {
                             const success = await userRepo.deleteAccount(currentUser.id);
                             if (success) {
                                 logout();
-                                CustomAlert.show("Sucesso", "Conta excluída com sucesso.");
+                                showInlineAlert("Sucesso", "Conta excluída com sucesso.");
                             } else {
-                                CustomAlert.show("Erro", "Falha ao excluir conta.");
+                                showInlineAlert("Erro", "Falha ao excluir conta.");
                             }
                         } catch {
-                            CustomAlert.show("Erro", "Não foi possível excluir a conta.");
+                            showInlineAlert("Erro", "Não foi possível excluir a conta.");
                         } finally {
                             setLoadingAction(false);
                         }
@@ -331,7 +363,7 @@ export default function ProfileScreen() {
     const handleAddCard = async () => {
         const { number, expiry, cvv, name } = newCard;
         if (number.length < 19 || expiry.length < 5 || cvv.length < 3 || !name) {
-            CustomAlert.show("Erro", "Dados do cartão inválidos.");
+            showInlineAlert("Erro", "Dados do cartão inválidos.");
             return;
         }
         setLoadingAction(true);
@@ -340,14 +372,14 @@ export default function ProfileScreen() {
             await subRepo.saveCard(cardToSave);
             setSavedCards(prev => [...prev, cardToSave]);
             setNewCard({ number: '', expiry: '', cvv: '', name: '' });
-            CustomAlert.show("Sucesso", "Cartão adicionado!");
+            showInlineAlert("Sucesso", "Cartão adicionado!");
         } finally {
             setLoadingAction(false);
         }
     };
 
     const handleDeleteCard = (id: string) => {
-        CustomAlert.show("Remover", "Excluir este cartão?", [
+        showInlineAlert("Remover", "Excluir este cartão?", [
             { text: "Não" },
             { text: "Sim", style: 'destructive', onPress: async () => {
                     await subRepo.deleteCard(id);
@@ -503,10 +535,7 @@ export default function ProfileScreen() {
                     onClose={() => setSubModalVisible(false)}
                     isTrialEligible={!subscription?.trialStartDate}
                     currentSubscription={subscription}
-                    onSubscriptionSuccess={(newSub) => {
-                        setSubscription(newSub);
-                        loadInitialData();
-                    }}
+                    onSubscriptionSuccess={handleModalSubscriptionSuccess}
                 />
             )}
 
@@ -567,9 +596,12 @@ export default function ProfileScreen() {
                 visible={inlineAlert.visible}
                 title={inlineAlert.title}
                 message={inlineAlert.message}
+                buttons={inlineAlert.buttons}
                 onConfirm={closeInlineAlert}
             />
         </>
     );
 }
+
+
 

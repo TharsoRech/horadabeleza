@@ -8,20 +8,25 @@ interface CustomAlertProps {
     title: string;
     message: string;
     onConfirm: () => void;
+    buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[];
 }
 
 interface AlertConfig {
     title: string;
     message: string;
-    buttons?: Array<{ text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }>;
+    buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[];
 }
 
 interface CustomAlertComponent extends React.FC<CustomAlertProps> {
-    show: (title: string, message: string, buttons?: Array<{ text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }>) => Promise<boolean>;
+    show: (title: string, message: string, buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[]) => Promise<boolean>;
     triggerAlert: (config: AlertConfig) => void;
 }
 
-const CustomAlert = (({ visible, title, message, onConfirm }: CustomAlertProps) => {
+const CustomAlert = (({ visible, title, message, onConfirm, buttons }: CustomAlertProps) => {
+    const normalizedButtons = buttons && buttons.length > 0
+        ? buttons
+        : [{ text: 'Entendi', onPress: onConfirm }];
+
     return (
         <Modal
             transparent={true}
@@ -43,13 +48,37 @@ const CustomAlert = (({ visible, title, message, onConfirm }: CustomAlertProps) 
                     <Text style={styles.title}>{title}</Text>
                     <Text style={styles.message}>{message}</Text>
                     
-                    <TouchableOpacity
-                        style={styles.button}
-                        onPress={onConfirm}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.buttonText}>Entendi</Text>
-                    </TouchableOpacity>
+                    <View style={styles.buttonsRow}>
+                        {normalizedButtons.map((button, index) => {
+                            const isCancel = button.style === 'cancel';
+                            const isDestructive = button.style === 'destructive';
+                            return (
+                                <TouchableOpacity
+                                    key={`${button.text}-${index}`}
+                                    style={[
+                                        styles.button,
+                                        isCancel && styles.cancelButton,
+                                        isDestructive && styles.destructiveButton
+                                    ]}
+                                    onPress={() => {
+                                        button.onPress?.();
+                                        onConfirm();
+                                    }}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.buttonText,
+                                            isCancel && styles.cancelButtonText,
+                                            isDestructive && styles.destructiveButtonText
+                                        ]}
+                                    >
+                                        {button.text}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
                 </LinearGradient>
             </View>
         </Modal>
@@ -107,16 +136,36 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: 25,
         elevation: 3,
+        minWidth: 120,
+        alignItems: 'center',
+    },
+    buttonsRow: {
+        flexDirection: 'row',
+        gap: 10,
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+    },
+    cancelButton: {
+        backgroundColor: '#F1F3F5',
+    },
+    destructiveButton: {
+        backgroundColor: '#FF3B30',
     },
     buttonText: {
         fontSize: 16,
         fontWeight: 'bold',
         color: '#FF4B91',
     },
+    cancelButtonText: {
+        color: '#6C757D',
+    },
+    destructiveButtonText: {
+        color: '#FFFFFF',
+    },
 });
 
 // Static method to show alert
-CustomAlert.show = (title: string, message: string, buttons?: Array<{ text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }>): Promise<boolean> => {
+CustomAlert.show = (title: string, message: string, buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[]): Promise<boolean> => {
     return new Promise((resolve, reject) => {
         try {
             if (buttons && buttons.length > 0) {

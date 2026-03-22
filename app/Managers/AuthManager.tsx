@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { UserProfile } from '../Models/UserProfile';
 import CacheManager from '../Managers/CacheManager';
 import { useRouter } from 'expo-router';
@@ -30,37 +30,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const router = useRouter();
     const profileKey = "user_profile_cache";
     const refreshTokenKey = "refresh_token_cache";
+    const accessTokenKey = "access_token_cache";
 
-    const userRepository = new UserRepository();
-    const loginRepository = new LoginRepository();
+    const userRepository = useMemo(() => new UserRepository(), []);
+    const loginRepository = useMemo(() => new LoginRepository(), []);
+
+    const clearLocalSession = useCallback(async () => {
+        await CacheManager.remove(profileKey);
+        await CacheManager.remove(refreshTokenKey);
+        await CacheManager.remove(accessTokenKey);
+        API_CONFIG.clearToken(); // Também limpa o refresh token
+        setCurrentUser(null);
+        setIsGuest(false);
+        router.replace('/Pages/Welcome/WelcomeScreen' as any);
+    }, [accessTokenKey, profileKey, refreshTokenKey, router]);
+
+    const logout = useCallback(async () => {
+        await loginRepository.logoutRemote(API_CONFIG.getRefreshToken());
+        await clearLocalSession();
+    }, [clearLocalSession, loginRepository]);
 
     // Registra callback de logout automático quando o provider monta
     useEffect(() => {
         API_CONFIG.setOnLogoutCallback(async () => {
             console.log('🔄 Callback de logout automático executado');
-            await logout();
+            await clearLocalSession();
         });
-    }, []);
+    }, [clearLocalSession]);
 
     useEffect(() => {
         async function loadStorageData() {
             try {
                 const cachedData = await CacheManager.load<{profile: any, timestamp: number}>(profileKey);
                 const cachedRefreshToken = await CacheManager.load<string>(refreshTokenKey);
+                const cachedAccessToken = await CacheManager.load<string>(accessTokenKey);
                 
                 if (cachedData) {
                     const { profile, timestamp } = cachedData;
                     const umMes = 30 * 24 * 60 * 60 * 1000;
                     if (Date.now() - timestamp < umMes) {
-                        setCurrentUser(profile);
+                        // Só considera sessão válida se houver token de acesso restaurado.
+                        if (cachedAccessToken) {
+                            API_CONFIG.setToken(cachedAccessToken);
+                            setCurrentUser(profile);
+                        } else {
+                            await CacheManager.remove(profileKey);
+                            await CacheManager.remove(refreshTokenKey);
+                            await CacheManager.remove(accessTokenKey);
+                            setCurrentUser(null);
+                        }
                         
-                        // Restaura refresh token se disponível
                         if (cachedRefreshToken) {
                             API_CONFIG.setRefreshToken(cachedRefreshToken);
                         }
                     } else {
                         await CacheManager.remove(profileKey);
                         await CacheManager.remove(refreshTokenKey);
+                        await CacheManager.remove(accessTokenKey);
                     }
                 }
             } catch (error) {
@@ -78,9 +104,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cleanProfile = JSON.parse(JSON.stringify(userProfile));
 
         await CacheManager.save(profileKey, { profile: cleanProfile, timestamp: Date.now() });
+
+        const accessToken = API_CONFIG.getToken();
+        if (accessToken) {
+            await CacheManager.save(accessTokenKey, accessToken);
+        }
         
         // Se o backend retornar um refresh token, armazena
-        const refreshToken = (userProfile as any)?.refreshToken;
+        const refreshToken = userProfile.refreshToken;
         if (refreshToken) {
             await CacheManager.save(refreshTokenKey, refreshToken);
             API_CONFIG.setRefreshToken(refreshToken);
@@ -96,9 +127,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cleanProfile = JSON.parse(JSON.stringify(newUser));
 
         await CacheManager.save(profileKey, { profile: cleanProfile, timestamp: Date.now() });
+
+        const accessToken = API_CONFIG.getToken();
+        if (accessToken) {
+            await CacheManager.save(accessTokenKey, accessToken);
+        }
         
         // Se o backend retornar um refresh token, armazena
-        const refreshToken = (newUser as any)?.refreshToken;
+        const refreshToken = newUser.refreshToken;
         if (refreshToken) {
             await CacheManager.save(refreshTokenKey, refreshToken);
             API_CONFIG.setRefreshToken(refreshToken);
@@ -114,20 +150,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         catch { return false; }
     };
 
-    const logout = async () => {
-        await CacheManager.remove(profileKey);
-        await CacheManager.remove(refreshTokenKey);
-        API_CONFIG.clearToken(); // Também limpa o refresh token
-        setCurrentUser(null);
-        setIsGuest(false);
-        router.replace('/Pages/Welcome/WelcomeScreen' as any);
-    };
 
     const refreshToken = async (): Promise<boolean> => {
         try {
-            // Verifica se temos um usuário logado e um token válido
-            if (!currentUser || !API_CONFIG.getToken()) {
-                console.warn('⚠️ Sem usuário ou token para fazer refresh');
+            // Refresh deve depender do refresh token, não do access token expirado.
+            if (!currentUser || !API_CONFIG.getRefreshToken()) {
+                console.warn('⚠️ Sem usuário ou refresh token para renovar sessão');
                 return false;
             }
 
@@ -137,8 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const response = await fetch(`${API_CONFIG.baseURL}/auth/refresh`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${API_CONFIG.getToken()}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     refreshToken: API_CONFIG.getRefreshToken()
@@ -152,6 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (data.token) {
                     console.log('✅ Token renovado com sucesso via AuthManager');
                     API_CONFIG.setToken(data.token);
+                    await CacheManager.save(accessTokenKey, data.token);
                     
                     // Se o backend retornar novo refresh token, atualiza também
                     if (data.refreshToken) {

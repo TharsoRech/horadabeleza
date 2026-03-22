@@ -28,8 +28,8 @@ export class LoginRepository implements ILoginRepository {
             }
             
             // Armazena o refresh token se disponível
-            if ((response as any).refreshToken) {
-                API_CONFIG.setRefreshToken((response as any).refreshToken);
+            if (response.refreshToken) {
+                API_CONFIG.setRefreshToken(response.refreshToken);
             }
 
             // Retorna o usuário autenticado
@@ -40,7 +40,8 @@ export class LoginRepository implements ILoginRepository {
                 role: mapApiTypeToUserRole(response.role ?? response.type),
                 dob: response.dob || '',
                 country: response.country || 'Brasil',
-                base64Image: response.base64Image || ''
+                base64Image: response.base64Image || '',
+                refreshToken: response.refreshToken
             });
         } catch (error) {
             console.error('Login error:', error);
@@ -91,8 +92,8 @@ export class LoginRepository implements ILoginRepository {
             }
             
             // Armazena o refresh token se disponível
-            if ((response as any).refreshToken) {
-                API_CONFIG.setRefreshToken((response as any).refreshToken);
+            if (response.refreshToken) {
+                API_CONFIG.setRefreshToken(response.refreshToken);
             }
 
             return new UserProfile({
@@ -102,7 +103,8 @@ export class LoginRepository implements ILoginRepository {
                 role: mapApiTypeToUserRole(response.role ?? response.type),
                 dob: response.dob || '',
                 country: response.country || 'Brasil',
-                base64Image: response.base64Image || ''
+                base64Image: response.base64Image || '',
+                refreshToken: response.refreshToken
             });
         } catch (error: any) {
             console.error('Register error:', error);
@@ -145,6 +147,30 @@ export class LoginRepository implements ILoginRepository {
                 throw new Error(`Erro ${error.status}: ${errorMessage}`);
             } else {
                 throw new Error(`Erro ${error.status || 'desconhecido'}: ${error.message || "Não foi possível registrar. Por favor, tente novamente."}`);
+            }
+        }
+    }
+
+    async logoutRemote(refreshToken?: string | null): Promise<void> {
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        try {
+            const controller = new AbortController();
+            timeoutId = setTimeout(() => controller.abort(), API_CONFIG.timeout);
+
+            await fetch(`${API_CONFIG.baseURL}/auth/logout`, {
+                method: 'POST',
+                headers: API_CONFIG.getAuthHeaders(),
+                body: JSON.stringify({ refreshToken: refreshToken || null }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+        } catch (error) {
+            // Logout local deve seguir mesmo quando logout remoto falha.
+            console.warn('Logout remoto falhou, seguindo com logout local:', error);
+        } finally {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
             }
         }
     }

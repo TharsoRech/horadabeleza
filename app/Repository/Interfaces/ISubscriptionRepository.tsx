@@ -3,6 +3,7 @@ import {Plan} from "@/app/Models/Plan";
 
 export interface ISubscriptionRepository {
     getSubscription(): Promise<Subscription>;
+    ensureSubscriptionExists(planId: number): Promise<Subscription>;
     activateTrial(): Promise<void>;
     getAvailablePlans(): Promise<Plan[]>;
     processPaidSubscription(planId: number, newCardData?: { number: string, expiry: string, cvv: string }): Promise<Subscription>;

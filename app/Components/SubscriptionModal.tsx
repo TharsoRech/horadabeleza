@@ -1,21 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SubscriptionModalStyles as styles } from "@/app/Styles/SubscriptionModalStyles";
 import { SubscriptionRepository } from "@/app/Repository/SubscriptionRepository";
 import { COLORS } from "@/constants/theme";
 import { Subscription } from "@/app/Models/Subscription";
 import { Plan } from "@/app/Models/Plan";
+import CustomAlert from './CustomAlert';
 
 interface Props {
     visible: boolean;
     onClose: () => void;
     isTrialEligible: boolean;
     currentSubscription?: Subscription | null;
-    onSubscriptionSuccess: (newSub: Subscription) => void;
+    onSubscriptionSuccess: (newSub: Subscription) => void | Promise<void>;
 }
 
 export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSubscription, onSubscriptionSuccess }: Props) => {
+    const [inlineAlert, setInlineAlert] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[];
+    }>({ visible: false, title: '', message: '', buttons: undefined });
     const [plans, setPlans] = useState<Plan[]>([]);
     const [savedCards, setSavedCards] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -29,6 +36,18 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
     const hasActiveSubscription = Boolean(currentSubscription?.isActive && currentSubscription.planType !== 'none');
     const canCancelSubscription = currentSubscription?.canCancel ?? hasActiveSubscription;
     const canUpgradeSubscription = currentSubscription?.canUpgrade ?? hasActiveSubscription;
+
+    const showInlineAlert = useCallback((
+        title: string,
+        message: string,
+        buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[]
+    ) => {
+        setInlineAlert({ visible: true, title, message, buttons });
+    }, []);
+
+    const closeInlineAlert = useCallback(() => {
+        setInlineAlert({ visible: false, title: '', message: '', buttons: undefined });
+    }, []);
 
     const loadInitialData = useCallback(async () => {
         setLoading(true);
@@ -80,13 +99,31 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
         return cleaned.slice(0, 5);
     };
 
+    const getErrorMessage = (error: unknown): string => {
+        if (error instanceof Error && error.message) {
+            return error.message;
+        }
+        return 'Não foi possível processar a assinatura. Verifique os dados do cartão.';
+    };
+
     const handleConfirmSubscription = async () => {
-        if (!selectedPlan) return;
+        if (!selectedPlan) {
+            showInlineAlert('Atenção', 'Selecione um plano antes de confirmar.');
+            return;
+        }
+
+        console.log('📌 Confirmando assinatura para plano:', {
+            planId: selectedPlan.id,
+            planName: selectedPlan.name,
+            planType: selectedPlan.type,
+            hasActiveSubscription,
+            hasSavedCards: savedCards.length > 0
+        });
 
         // Validação se for plano pago e não tiver cartão salvo/digitado
         if (selectedPlan.type === 'paid' && savedCards.length === 0) {
             if (cardData.number.length < 19 || cardData.expiry.length < 5 || cardData.cvv.length < 3) {
-                Alert.alert("Erro", "Por favor, insira dados de cartão válidos.");
+                showInlineAlert("Erro", "Por favor, insira dados de cartão válidos.");
                 return;
             }
         }
@@ -97,23 +134,21 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
             const newCardPayload = savedCards.length === 0 ? cardData : undefined;
 
             if (selectedPlan.type === 'trial') {
+                console.log('➡️ Chamando endpoint de trial');
                 updatedSub = await subRepo.activateFreeTrial();
             } else if (hasActiveSubscription) {
+                console.log('➡️ Chamando endpoint de upgrade');
                 updatedSub = await subRepo.upgradeSubscription(selectedPlan.id, newCardPayload);
             } else {
+                console.log('➡️ Chamando endpoint de assinatura paga');
                 updatedSub = await subRepo.processPaidSubscription(selectedPlan.id, newCardPayload);
             }
 
-            onSubscriptionSuccess(updatedSub);
+            await onSubscriptionSuccess(updatedSub);
             onClose();
-            Alert.alert(
-                "Sucesso!",
-                hasActiveSubscription
-                    ? `Upgrade para ${selectedPlan.name} concluído com sucesso.`
-                    : `${selectedPlan.name} ativado com sucesso.`
-            );
-        } catch {
-            Alert.alert("Erro", "Não foi possível processar a assinatura. Verifique os dados do cartão.");
+        } catch (error) {
+            console.error('❌ Falha ao confirmar assinatura:', error);
+            showInlineAlert('Erro', getErrorMessage(error));
         } finally {
             setIsProcessing(false);
             setSelectedPlan(null);
@@ -122,7 +157,7 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
     };
 
     const handleCancelSubscription = () => {
-        Alert.alert(
+        showInlineAlert(
             'Cancelar assinatura',
             'Deseja realmente cancelar sua assinatura atual? Esta ação pode remover benefícios imediatamente.',
             [
@@ -134,11 +169,10 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
                         setIsProcessing(true);
                         try {
                             const updatedSub = await subRepo.cancelSubscription();
-                            onSubscriptionSuccess(updatedSub);
+                            await onSubscriptionSuccess(updatedSub);
                             onClose();
-                            Alert.alert('Assinatura cancelada', 'Sua assinatura foi cancelada com sucesso.');
                         } catch {
-                            Alert.alert('Erro', 'Não foi possível cancelar a assinatura neste momento.');
+                            showInlineAlert('Erro', 'Não foi possível cancelar a assinatura neste momento.');
                         } finally {
                             setIsProcessing(false);
                         }
@@ -305,6 +339,14 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
                     )}
                 </View>
             </View>
+
+            <CustomAlert
+                visible={inlineAlert.visible}
+                title={inlineAlert.title}
+                message={inlineAlert.message}
+                buttons={inlineAlert.buttons}
+                onConfirm={closeInlineAlert}
+            />
         </Modal>
     );
 };

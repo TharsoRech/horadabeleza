@@ -17,6 +17,7 @@ export class UserProfile {
     doc?: string;
     phone?: string;
     photoUrl?: string;
+    refreshToken?: string;
 
     constructor(data: Partial<UserProfile> = {}) {
         this.id = data.id || Crypto.randomUUID();
@@ -30,6 +31,7 @@ export class UserProfile {
         this.doc = data.doc;
         this.phone = data.phone;
         this.photoUrl = data.photoUrl;
+        this.refreshToken = data.refreshToken;
     }
 
     static mock(): UserProfile {
