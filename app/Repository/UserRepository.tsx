@@ -1,6 +1,7 @@
 import { UserProfile } from "../Models/UserProfile";
 import { IUserRepository } from "./Interfaces/IUserRepository";
 import { apiClient } from "@/app/Utils/apiClient";
+import { mapApiTypeToUserRole, mapUserRoleToApiType } from "@/app/Helpers/userRoleMapper";
 
 export class UserRepository implements IUserRepository {
     async getMyProfile(): Promise<UserProfile> {
@@ -16,7 +17,7 @@ export class UserRepository implements IUserRepository {
             country: response?.country,
             base64Image: response?.base64Image,
             photoUrl: response?.photoUrl,
-            role: response?.role,
+            role: mapApiTypeToUserRole(response?.role ?? response?.type),
         });
     }
 
@@ -31,6 +32,7 @@ export class UserRepository implements IUserRepository {
                     doc: user.doc,
                     dob: user.dob,
                     country: user.country,
+                    type: mapUserRoleToApiType(user.role),
                     hasImage: !!user.base64Image
                 }
             });
@@ -45,7 +47,8 @@ export class UserRepository implements IUserRepository {
                 dob: user.dob,
                 country: user.country,
                 base64Image: user.base64Image,
-                username: user.name?.toLowerCase().replace(/\s+/g, '.')
+                username: user.name?.toLowerCase().replace(/\s+/g, '.'),
+                type: mapUserRoleToApiType(user.role)
             });
 
             console.log('✅ Perfil atualizado com sucesso na API:', response);

@@ -3,6 +3,7 @@ import { apiClient } from "@/app/Utils/apiClient";
 import { API_CONFIG } from "@/app/Config/apiConfig";
 import { LoginResponse } from "@/app/Types/apiTypes";
 import { hashPassword } from "@/app/Utils/passwordHash";
+import { mapApiTypeToUserRole } from "@/app/Helpers/userRoleMapper";
 
 export interface ILoginRepository {
     login(email: string, pass: string): Promise<UserProfile>;
@@ -36,7 +37,7 @@ export class LoginRepository implements ILoginRepository {
                 id: response.id,
                 name: response.name,
                 email: response.email,
-                role: response.role as UserRole || UserRole.CLIENT,
+                role: mapApiTypeToUserRole(response.role ?? response.type),
                 dob: response.dob || '',
                 country: response.country || 'Brasil',
                 base64Image: response.base64Image || ''
@@ -98,7 +99,7 @@ export class LoginRepository implements ILoginRepository {
                 id: response.id,
                 name: response.name,
                 email: response.email,
-                role: response.role as UserRole || UserRole.CLIENT,
+                role: mapApiTypeToUserRole(response.role ?? response.type),
                 dob: response.dob || '',
                 country: response.country || 'Brasil',
                 base64Image: response.base64Image || ''

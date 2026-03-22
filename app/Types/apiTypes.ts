@@ -7,7 +7,8 @@ export interface LoginResponse {
     id: string;
     name: string;
     email: string;
-    role: string;
+    role?: string;
+    type?: string | number;
     dob?: string;
     country?: string;
     token: string;
@@ -169,7 +170,8 @@ export interface UserProfileResponse {
     id: string;
     name: string;
     email: string;
-    role: string;
+    role?: string;
+    type?: string | number;
     dob?: string;
     country?: string;
 }

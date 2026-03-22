@@ -14,6 +14,7 @@ import { COLORS } from "@/constants/theme";
 import { AuthGuardPlaceholder } from "@/app/Components/AuthGuardPlaceholder";
 import { UserProfile, UserRole } from '../Models/UserProfile';
 import { formatDate, convertToISO8601, formatCPF } from "@/app/Helpers/FormatStrings";
+import { mapApiTypeToUserRole } from "@/app/Helpers/userRoleMapper";
 import CustomAlert from '../Components/CustomAlert';
 import { API_CONFIG } from '../Config/apiConfig';
 
@@ -84,12 +85,12 @@ export default function ProfileScreen() {
         return formatDate(value);
     }, []);
 
-    const loadUserProfileFromAPI = useCallback(async () => {
+    const loadUserProfileFromAPI = useCallback(async (): Promise<UserRole> => {
         try {
             const token = API_CONFIG.getToken();
             if (!token) {
                 console.warn("Sem token de autenticação disponível");
-                return;
+                return currentUser?.role || UserRole.CLIENT;
             }
 
             const response = await fetch(`${API_CONFIG.baseURL}/auth/me`, {
@@ -99,10 +100,11 @@ export default function ProfileScreen() {
 
             if (!response.ok) {
                 console.error(`Erro ao carregar perfil do API: ${response.status}`);
-                return;
+                return currentUser?.role || UserRole.CLIENT;
             }
 
             const userData = await response.json();
+            const resolvedRole = mapApiTypeToUserRole(userData?.role ?? userData?.type ?? currentUser?.role);
             console.log(userData)
             // Mapear dados do API para os campos do formulário
             if (userData) {
@@ -112,7 +114,7 @@ export default function ProfileScreen() {
                 setEditPhone(userData.phone || currentUser?.phone || '');
                 setEditDob(userData.dob ? toDobDisplay(userData.dob) : currentUser?.dob ? toDobDisplay(currentUser.dob) : '');
                 setEditCountry(userData.country || currentUser?.country || '');
-                setEditRole(userData.role || currentUser?.role || UserRole.CLIENT);
+                setEditRole(resolvedRole);
                 
                 // Se houver imagem, atualizar também
                 if (userData.base64Image) {
@@ -120,23 +122,33 @@ export default function ProfileScreen() {
                     setImageUri(`data:image/jpeg;base64,${userData.base64Image}`);
                 }
             }
+
+            return resolvedRole;
         } catch (error) {
             console.error("Erro ao carregar dados do perfil via API:", error);
+            return currentUser?.role || UserRole.CLIENT;
         }
     }, [currentUser?.name, currentUser?.email, currentUser?.doc, currentUser?.phone, currentUser?.dob, currentUser?.country, currentUser?.role, toDobDisplay]);
 
     const loadInitialData = useCallback(async () => {
         try {
             // Carregar dados do usuário do endpoint /auth/me
-            await loadUserProfileFromAPI();
-            
-            // Carregar dados de assinatura e cartões
-            const [subData, cardsData] = await Promise.all([
-                subRepo.getSubscription(),
-                subRepo.getSavedCards()
-            ]);
-            setSubscription(subData);
-            setSavedCards(cardsData || []);
+            const userRole = await loadUserProfileFromAPI();
+
+            // Assinatura e cartões são exclusivos de profissionais.
+            if (userRole === UserRole.PROFISSIONAL) {
+                const [subData, cardsData] = await Promise.all([
+                    subRepo.getSubscription(),
+                    subRepo.getSavedCards()
+                ]);
+                setSubscription(subData);
+                setSavedCards(cardsData || []);
+            } else {
+                setSubscription(null);
+                setSavedCards([]);
+                setSubModalVisible(false);
+                setCardModalVisible(false);
+            }
         } catch (error) {
             console.error("Erro ao carregar dados do perfil:", error);
         } finally {
@@ -192,6 +204,7 @@ export default function ProfileScreen() {
     };
 
     const subStatus = getSubscriptionStatus();
+    const isProfessional = (currentUser?.role || editRole) === UserRole.PROFISSIONAL;
 
     // Função auxiliar para converter DD/MM/YYYY para YYYY-MM-DD
     const handleUpdate = useCallback(async () => {
@@ -441,26 +454,30 @@ export default function ProfileScreen() {
                                         <Ionicons name="chevron-forward" size={18} color="#CCC" />
                                     </TouchableOpacity>
 
-                                    <TouchableOpacity style={profileStyles.menuItem} onPress={() => setSubModalVisible(true)}>
-                                        <View style={profileStyles.menuIconContainer}><MaterialCommunityIcons name="crown-outline" size={22} color="#FFD700" /></View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={profileStyles.menuText}>Minha Assinatura</Text>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                                <MaterialCommunityIcons name={subStatus.icon} size={14} color={subStatus.color} />
-                                                <Text style={{ fontSize: 11, color: subStatus.color, fontWeight: '700' }}>{subStatus.label}</Text>
+                                    {isProfessional && (
+                                        <TouchableOpacity style={profileStyles.menuItem} onPress={() => setSubModalVisible(true)}>
+                                            <View style={profileStyles.menuIconContainer}><MaterialCommunityIcons name="crown-outline" size={22} color="#FFD700" /></View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={profileStyles.menuText}>Minha Assinatura</Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                    <MaterialCommunityIcons name={subStatus.icon} size={14} color={subStatus.color} />
+                                                    <Text style={{ fontSize: 11, color: subStatus.color, fontWeight: '700' }}>{subStatus.label}</Text>
+                                                </View>
                                             </View>
-                                        </View>
-                                        <Ionicons name="chevron-forward" size={18} color="#CCC" />
-                                    </TouchableOpacity>
+                                            <Ionicons name="chevron-forward" size={18} color="#CCC" />
+                                        </TouchableOpacity>
+                                    )}
 
-                                    <TouchableOpacity style={profileStyles.menuItem} onPress={() => setCardModalVisible(true)}>
-                                        <View style={profileStyles.menuIconContainer}><Ionicons name="card-outline" size={22} color="#4CAF50" /></View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={profileStyles.menuText}>Métodos de pagamento</Text>
-                                            <Text style={{ fontSize: 11, color: COLORS.muted, marginLeft:8 }}>{savedCards.length} cartão(ões) salvo(s)</Text>
-                                        </View>
-                                        <Ionicons name="chevron-forward" size={18} color="#CCC" />
-                                    </TouchableOpacity>
+                                    {isProfessional && (
+                                        <TouchableOpacity style={profileStyles.menuItem} onPress={() => setCardModalVisible(true)}>
+                                            <View style={profileStyles.menuIconContainer}><Ionicons name="card-outline" size={22} color="#4CAF50" /></View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={profileStyles.menuText}>Métodos de pagamento</Text>
+                                                <Text style={{ fontSize: 11, color: COLORS.muted, marginLeft:8 }}>{savedCards.length} cartão(ões) salvo(s)</Text>
+                                            </View>
+                                            <Ionicons name="chevron-forward" size={18} color="#CCC" />
+                                        </TouchableOpacity>
+                                    )}
 
                                     {/* ALTERAR SENHA - SOMENTE NO MENU PRINCIPAL */}
                                     <TouchableOpacity style={profileStyles.menuItem} onPress={() => setChangePasswordModalVisible(true)}>
@@ -480,18 +497,20 @@ export default function ProfileScreen() {
                 </View>
             </KeyboardAvoidingView>
 
-            <SubscriptionModal
-                visible={subModalVisible}
-                onClose={() => setSubModalVisible(false)}
-                isTrialEligible={!subscription?.trialStartDate}
-                currentSubscription={subscription}
-                onSubscriptionSuccess={(newSub) => {
-                    setSubscription(newSub);
-                    loadInitialData();
-                }}
-            />
+            {isProfessional && (
+                <SubscriptionModal
+                    visible={subModalVisible}
+                    onClose={() => setSubModalVisible(false)}
+                    isTrialEligible={!subscription?.trialStartDate}
+                    currentSubscription={subscription}
+                    onSubscriptionSuccess={(newSub) => {
+                        setSubscription(newSub);
+                        loadInitialData();
+                    }}
+                />
+            )}
 
-            <Modal visible={cardModalVisible} animationType="slide" transparent>
+            <Modal visible={isProfessional && cardModalVisible} animationType="slide" transparent>
                 <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
                     <View style={{ backgroundColor: '#FFF', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 20, height: '85%' }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
