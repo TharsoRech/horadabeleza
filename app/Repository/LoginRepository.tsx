@@ -2,6 +2,7 @@ import {UserProfile, UserRole} from "@/app/Models/UserProfile";
 import { apiClient } from "@/app/Utils/apiClient";
 import { API_CONFIG } from "@/app/Config/apiConfig";
 import { LoginResponse } from "@/app/Types/apiTypes";
+import { hashPassword } from "@/app/Utils/passwordHash";
 
 export interface ILoginRepository {
     login(email: string, pass: string): Promise<UserProfile>;
@@ -12,9 +13,12 @@ export interface ILoginRepository {
 export class LoginRepository implements ILoginRepository {
     async login(email: string, pass: string): Promise<UserProfile> {
         try {
+            const hashedPassword = await hashPassword(pass);
+
             const response: LoginResponse = await apiClient.post('/auth/login', {
                 email,
-                password: pass
+                password: hashedPassword,
+                legacyPassword: pass
             });
 
             // Armazena o token JWT
@@ -65,11 +69,12 @@ export class LoginRepository implements ILoginRepository {
             };
 
             const userType = userTypeMap[userData.role || UserRole.CLIENT];
+            const hashedPassword = await hashPassword(userData.password || '');
             
             const registerData = {
                 Name: userData.name || '',
                 Email: userData.email || '',
-                Password: userData.password || '',
+                Password: hashedPassword,
                 Type: userType, // Envia como número, não string
                 Phone: userData.phone,
                 Doc: userData.doc,

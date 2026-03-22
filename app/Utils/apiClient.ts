@@ -16,8 +16,7 @@ export class ApiClient {
     }
 
     /**
-     * Tenta renovar o token automaticamente
-     * Se falhar, desconecta o usuário automaticamente
+     * Tenta renovar o token automaticamente sem forçar logout em falha transitória.
      */
     private async handleTokenRefresh(): Promise<boolean> {
         // Se já está tentando fazer refresh, espera a promessa existente
@@ -28,8 +27,7 @@ export class ApiClient {
 
         // Se não temos refresh token, não há como renovar
         if (!API_CONFIG.getRefreshToken()) {
-            console.warn('⚠️ Nenhum refresh token disponível, realizando logout automático');
-            await this.handleAutoLogout();
+            console.warn('⚠️ Nenhum refresh token disponível para renovação');
             return false;
         }
 
@@ -84,37 +82,21 @@ export class ApiClient {
                 }
                 
                 console.warn('⚠️ Resposta de refresh sem novo token');
-                await this.handleAutoLogout();
                 return false;
             } else {
                 console.error(`❌ Falha ao renovar token: ${response.status}`);
-                await this.handleAutoLogout();
                 return false;
             }
         } catch (error) {
             console.error('❌ Erro ao renovar token:', error);
-            await this.handleAutoLogout();
             return false;
         }
     }
 
-    /**
-     * Realiza logout automático quando o token não pode ser renovado
-     */
-    private async handleAutoLogout(): Promise<void> {
-        console.error('🚫 Logout automático acionado: Token inválido e não pode ser renovado');
-        
-        API_CONFIG.clearToken();
-        
-        // Chama callback de logout se registrado
-        if (API_CONFIG.onLogoutCallback) {
-            try {
-                await API_CONFIG.onLogoutCallback();
-            } catch (error) {
-                console.error('Erro ao executar logout callback:', error);
-            }
-        }
+    private shouldAttemptRefresh(status: number, retryCount: number): boolean {
+        return retryCount === 0 && (status === 401 || status === 404);
     }
+
 
     private buildHttpError(status: number, statusText: string, errorText: string): Error {
         let backendMessage = '';
@@ -187,24 +169,16 @@ export class ApiClient {
                     errorText: errorText
                 });
                 
-                // Tratamento de tokens expirados (401 Unauthorized)
-                if (response.status === 401) {
-                    // Tenta fazer refresh automático
-                    if (retryCount === 0) {
-                        console.log('🔄 Token expirado, tentando renovar...');
-                        const refreshed = await this.handleTokenRefresh();
-                        
-                        if (refreshed) {
-                            // Retry da requisição com novo token
-                            return this.get<T>(endpoint, headers, retryCount + 1);
-                        }
+                if (this.shouldAttemptRefresh(response.status, retryCount)) {
+                    console.log(`🔄 GET recebeu ${response.status}, tentando renovar token...`);
+                    const refreshed = await this.handleTokenRefresh();
+
+                    if (refreshed) {
+                        return this.get<T>(endpoint, headers, retryCount + 1);
                     }
-                    
-                    // Se falhou no refresh ou já fez retry, desconecta o usuário
-                    throw new Error('Token expirado. Faça login novamente.');
                 }
-                
-                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
+
+                throw this.buildHttpError(response.status, response.statusText, errorText);
             }
 
             const data = await response.json();
@@ -253,21 +227,16 @@ export class ApiClient {
                     errorText: errorText
                 });
                 
-                // Tratamento de tokens expirados (401 Unauthorized)
-                if (response.status === 401) {
-                    if (retryCount === 0) {
-                        console.log('🔄 Token expirado no POST, tentando renovar...');
-                        const refreshed = await this.handleTokenRefresh();
-                        
-                        if (refreshed) {
-                            return this.post<T>(endpoint, data, headers, retryCount + 1);
-                        }
+                if (this.shouldAttemptRefresh(response.status, retryCount)) {
+                    console.log(`🔄 POST recebeu ${response.status}, tentando renovar token...`);
+                    const refreshed = await this.handleTokenRefresh();
+
+                    if (refreshed) {
+                        return this.post<T>(endpoint, data, headers, retryCount + 1);
                     }
-                    
-                    throw new Error('Token expirado. Faça login novamente.');
                 }
-                
-                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
+
+                throw this.buildHttpError(response.status, response.statusText, errorText);
             }
 
             const responseData = await response.json();
@@ -316,18 +285,13 @@ export class ApiClient {
                     errorText: errorText
                 });
                 
-                // Tratamento de tokens expirados (401 Unauthorized)
-                if (response.status === 401) {
-                    if (retryCount === 0) {
-                        console.log('🔄 Token expirado no PUT, tentando renovar...');
-                        const refreshed = await this.handleTokenRefresh();
-                        
-                        if (refreshed) {
-                            return this.put<T>(endpoint, data, headers, retryCount + 1);
-                        }
+                if (this.shouldAttemptRefresh(response.status, retryCount)) {
+                    console.log(`🔄 PUT recebeu ${response.status}, tentando renovar token...`);
+                    const refreshed = await this.handleTokenRefresh();
+
+                    if (refreshed) {
+                        return this.put<T>(endpoint, data, headers, retryCount + 1);
                     }
-                    
-                    throw new Error('Token expirado. Faça login novamente.');
                 }
 
                 throw this.buildHttpError(response.status, response.statusText, errorText);
@@ -384,21 +348,16 @@ export class ApiClient {
                     errorText: errorText
                 });
                 
-                // Tratamento de tokens expirados (401 Unauthorized)
-                if (response.status === 401) {
-                    if (retryCount === 0) {
-                        console.log('🔄 Token expirado no DELETE, tentando renovar...');
-                        const refreshed = await this.handleTokenRefresh();
-                        
-                        if (refreshed) {
-                            return this.delete<T>(endpoint, headers, retryCount + 1);
-                        }
+                if (this.shouldAttemptRefresh(response.status, retryCount)) {
+                    console.log(`🔄 DELETE recebeu ${response.status}, tentando renovar token...`);
+                    const refreshed = await this.handleTokenRefresh();
+
+                    if (refreshed) {
+                        return this.delete<T>(endpoint, headers, retryCount + 1);
                     }
-                    
-                    throw new Error('Token expirado. Faça login novamente.');
                 }
-                
-                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
+
+                throw this.buildHttpError(response.status, response.statusText, errorText);
             }
 
             const responseData = await response.json();
@@ -450,21 +409,16 @@ export class ApiClient {
                     errorText: errorText
                 });
                 
-                // Tratamento de tokens expirados (401 Unauthorized)
-                if (response.status === 401) {
-                    if (retryCount === 0) {
-                        console.log('🔄 Token expirado no UPLOAD, tentando renovar...');
-                        const refreshed = await this.handleTokenRefresh();
-                        
-                        if (refreshed) {
-                            return this.upload<T>(endpoint, formData, headers, retryCount + 1);
-                        }
+                if (this.shouldAttemptRefresh(response.status, retryCount)) {
+                    console.log(`🔄 UPLOAD recebeu ${response.status}, tentando renovar token...`);
+                    const refreshed = await this.handleTokenRefresh();
+
+                    if (refreshed) {
+                        return this.upload<T>(endpoint, formData, headers, retryCount + 1);
                     }
-                    
-                    throw new Error('Token expirado. Faça login novamente.');
                 }
-                
-                throw new Error(`HTTP error! status: ${response.status}, message: ${response.statusText}`);
+
+                throw this.buildHttpError(response.status, response.statusText, errorText);
             }
 
             const responseData = await response.json();

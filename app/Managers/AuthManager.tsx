@@ -163,16 +163,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
                 
                 console.warn('⚠️ Resposta de refresh sem novo token');
-                await logout();
                 return false;
             } else {
                 console.error(`❌ Falha ao renovar token: ${response.status}`);
-                await logout();
                 return false;
             }
         } catch (error) {
             console.error('❌ Erro ao renovar token no AuthManager:', error);
-            await logout();
             return false;
         }
     };
