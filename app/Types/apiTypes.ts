@@ -153,6 +153,7 @@ export interface SubscriptionResponse {
     trialStartDate?: string;
     trialEndDate?: string;
     nextBillingDate?: string;
+    isTrialEligible?: boolean;
     canUpgrade?: boolean;
     canCancel?: boolean;
 }

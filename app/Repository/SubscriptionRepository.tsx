@@ -61,6 +61,7 @@ export class SubscriptionRepository implements ISubscriptionRepository {
             trialStartDate: response.trialStartDate,
             trialEndDate: response.trialEndDate,
             nextBillingDate: response.nextBillingDate,
+            isTrialEligible: response.isTrialEligible,
             canUpgrade: response.canUpgrade,
             canCancel: response.canCancel
         };

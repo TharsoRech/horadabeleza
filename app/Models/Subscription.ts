@@ -11,6 +11,7 @@ export interface Subscription {
     trialEndDate?: string;   // ISO Date String
     startDate?: string;      // ISO Date String
     nextBillingDate?: string; // Útil para planos pagos
+    isTrialEligible?: boolean;
     canUpgrade?: boolean;
     canCancel?: boolean;
 }

@@ -592,7 +592,7 @@ export default function ProfileScreen() {
                 <SubscriptionModal
                     visible={subModalVisible}
                     onClose={handleCloseSubscriptionModal}
-                    isTrialEligible={!subscription?.trialStartDate}
+                    isTrialEligible={subscription?.isTrialEligible ?? true}
                     currentSubscription={subscription}
                     onSubscriptionSuccess={handleModalSubscriptionSuccess}
                 />
