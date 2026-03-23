@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SubscriptionModalStyles as styles } from "@/app/Styles/SubscriptionModalStyles";
@@ -17,6 +17,7 @@ interface Props {
 }
 
 export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSubscription, onSubscriptionSuccess }: Props) => {
+    const pendingAfterAlertActionRef = useRef<(() => void) | null>(null);
     const [inlineAlert, setInlineAlert] = useState<{
         visible: boolean;
         title: string;
@@ -49,11 +50,21 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
         message: string,
         buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[]
     ) => {
+        // Qualquer novo alerta invalida ações pendentes anteriores.
+        pendingAfterAlertActionRef.current = null;
         setInlineAlert({ visible: true, title, message, buttons });
     }, []);
 
     const closeInlineAlert = useCallback(() => {
+        const pendingAction = pendingAfterAlertActionRef.current;
+        pendingAfterAlertActionRef.current = null;
         setInlineAlert({ visible: false, title: '', message: '', buttons: undefined });
+
+        // Executa ações pendentes no próximo tick para evitar corrida entre fechamento do
+        // CustomAlert e fechamento/sincronização do modal pai.
+        if (pendingAction) {
+            setTimeout(() => pendingAction(), 0);
+        }
     }, []);
 
     const loadInitialData = useCallback(async () => {
@@ -98,6 +109,7 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
     useEffect(() => {
         if (!visible) {
             // Garante que nenhum overlay local continue bloqueando toques na Profile.
+            pendingAfterAlertActionRef.current = null;
             closeInlineAlert();
             setSelectedPlan(null);
             setIsProcessing(false);
@@ -122,11 +134,39 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
         return 'Não foi possível processar a assinatura. Verifique os dados do cartão.';
     };
 
+    const getSuccessMessage = (updatedSub: Subscription, requestedPlan: Plan): string => {
+        const apiPlanName = updatedSub.planName || requestedPlan.name;
+
+        if (requestedPlan.type === 'trial') {
+            if (updatedSub.trialEndDate) {
+                return `Plano Starter ativado com sucesso! Seu período de teste vai até ${new Date(updatedSub.trialEndDate).toLocaleDateString('pt-BR')}.`;
+            }
+            return 'Plano Starter ativado com sucesso!';
+        }
+
+        if (hasActiveSubscription) {
+            return `Upgrade para o plano ${apiPlanName} realizado com sucesso!`;
+        }
+
+        return `Assinatura do plano ${apiPlanName} ativada com sucesso!`;
+    };
+
+    const queueCloseAndSyncAfterAlert = useCallback((updatedSub: Subscription) => {
+        pendingAfterAlertActionRef.current = () => {
+            onClose();
+            Promise.resolve(onSubscriptionSuccess(updatedSub)).catch((syncError) => {
+                console.error('Erro ao sincronizar assinatura após confirmação:', syncError);
+            });
+        };
+    }, [onClose, onSubscriptionSuccess]);
+
     const handleConfirmSubscription = async () => {
         if (!selectedPlan) {
             showInlineAlert('Atenção', 'Selecione um plano antes de confirmar.');
             return;
         }
+
+        const requestedPlan = selectedPlan;
 
         console.log('📌 Confirmando assinatura para plano:', {
             planId: selectedPlan.id,
@@ -149,21 +189,27 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
             let updatedSub: Subscription;
             const newCardPayload = savedCards.length === 0 ? cardData : undefined;
 
-            if (selectedPlan.type === 'trial') {
+            if (requestedPlan.type === 'trial') {
                 console.log('➡️ Chamando endpoint de trial');
                 updatedSub = await subRepo.activateFreeTrial();
             } else if (hasActiveSubscription) {
                 console.log('➡️ Chamando endpoint de upgrade');
-                updatedSub = await subRepo.upgradeSubscription(selectedPlan.id, newCardPayload);
+                updatedSub = await subRepo.upgradeSubscription(requestedPlan.id, newCardPayload);
             } else {
                 console.log('➡️ Chamando endpoint de assinatura paga');
-                updatedSub = await subRepo.processPaidSubscription(selectedPlan.id, newCardPayload);
+                updatedSub = await subRepo.processPaidSubscription(requestedPlan.id, newCardPayload);
             }
 
-            onClose();
-            Promise.resolve(onSubscriptionSuccess(updatedSub)).catch((syncError) => {
-                console.error('Erro ao sincronizar assinatura após confirmação:', syncError);
-            });
+            showInlineAlert(
+                'Sucesso',
+                getSuccessMessage(updatedSub, requestedPlan),
+                [
+                    {
+                        text: 'Entendi'
+                    }
+                ]
+            );
+            queueCloseAndSyncAfterAlert(updatedSub);
         } catch (error) {
             console.error('❌ Falha ao confirmar assinatura:', error);
             showInlineAlert('Erro', getErrorMessage(error));
@@ -182,7 +228,7 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
 
         showInlineAlert(
             'Cancelar assinatura',
-            'Deseja realmente cancelar sua assinatura atual? Esta ação pode remover benefícios imediatamente.',
+            'Deseja realmente cancelar sua assinatura atual? Qualquer unidade que estiver publicada deixará de ser publicada automaticamente e os benefícios podem ser removidos imediatamente.',
             [
                 { text: 'Voltar', style: 'cancel' },
                 {
@@ -192,10 +238,12 @@ export const SubscriptionModal = ({ visible, onClose, isTrialEligible, currentSu
                         setIsProcessing(true);
                         try {
                             const updatedSub = await subRepo.cancelSubscription();
-                            onClose();
-                            Promise.resolve(onSubscriptionSuccess(updatedSub)).catch((syncError) => {
-                                console.error('Erro ao sincronizar assinatura após cancelamento:', syncError);
-                            });
+                            showInlineAlert(
+                                'Sucesso',
+                                'Assinatura cancelada com sucesso. Unidades publicadas serão despublicadas automaticamente.',
+                                [{ text: 'Entendi' }]
+                            );
+                            queueCloseAndSyncAfterAlert(updatedSub);
                         } catch {
                             showInlineAlert('Erro', 'Não foi possível cancelar a assinatura neste momento.');
                         } finally {
