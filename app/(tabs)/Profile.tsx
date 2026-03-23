@@ -23,8 +23,10 @@ import { Subscription } from "@/app/Models/Subscription";
 import { SubscriptionModal } from '../Components/SubscriptionModal';
 import { UserRepository } from "@/app/Repository/UserRepository";
 import { ChangePasswordModal } from '../Components/ChangePasswordModal';
+import { SavedCard } from '@/app/Types/apiTypes';
 
 type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
+type AlertButton = { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void };
 
 export default function ProfileScreen() {
     const insets = useSafeAreaInsets();
@@ -34,7 +36,7 @@ export default function ProfileScreen() {
 
     // --- ESTADOS DE DADOS ---
     const [subscription, setSubscription] = useState<Subscription | null>(null);
-    const [savedCards, setSavedCards] = useState<any[]>([]);
+    const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
     const [loadingInitial, setLoadingInitial] = useState(true);
 
     // --- ESTADOS DE UI ---
@@ -47,7 +49,13 @@ export default function ProfileScreen() {
         visible: boolean;
         title: string;
         message: string;
-        buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[];
+        buttons?: AlertButton[];
+    }>({ visible: false, title: '', message: '', buttons: undefined });
+    const [cardAlert, setCardAlert] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        buttons?: AlertButton[];
     }>({ visible: false, title: '', message: '', buttons: undefined });
 
     // --- ESTADOS DE FORMULÁRIO PERFIL ---
@@ -67,13 +75,25 @@ export default function ProfileScreen() {
     const showInlineAlert = useCallback((
         title: string,
         message: string,
-        buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[]
+        buttons?: AlertButton[]
     ) => {
         setInlineAlert({ visible: true, title, message, buttons });
     }, []);
 
     const closeInlineAlert = useCallback(() => {
         setInlineAlert({ visible: false, title: '', message: '', buttons: undefined });
+    }, []);
+
+    const showCardAlert = useCallback((
+        title: string,
+        message: string,
+        buttons?: AlertButton[]
+    ) => {
+        setCardAlert({ visible: true, title, message, buttons });
+    }, []);
+
+    const closeCardAlert = useCallback(() => {
+        setCardAlert({ visible: false, title: '', message: '', buttons: undefined });
     }, []);
 
     const toDobDisplay = useCallback((value?: string) => {
@@ -193,6 +213,14 @@ export default function ProfileScreen() {
         // Evita overlay residual da Profile após fechar modal de assinatura.
         closeInlineAlert();
     }, [closeInlineAlert]);
+
+    const handleCloseCardModal = useCallback(() => {
+        setCardModalVisible(false);
+        setNewCard({ number: '', expiry: '', cvv: '', name: '' });
+        // Evita overlay residual após fechar o modal de cartão.
+        closeInlineAlert();
+        closeCardAlert();
+    }, [closeCardAlert, closeInlineAlert]);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -372,34 +400,56 @@ export default function ProfileScreen() {
     const handleAddCard = async () => {
         const { number, expiry, cvv, name } = newCard;
         if (number.length < 19 || expiry.length < 5 || cvv.length < 3 || !name) {
-            showInlineAlert("Erro", "Dados do cartão inválidos.");
+            showCardAlert("Erro", "Dados do cartão inválidos.");
             return;
         }
         setLoadingAction(true);
         try {
-            const cardToSave = { id: Date.now().toString(), last4: number.slice(-4), expiry: expiry, isDefault: savedCards.length === 0 };
-            await subRepo.saveCard(cardToSave);
-            setSavedCards(prev => [...prev, cardToSave]);
-            setNewCard({ number: '', expiry: '', cvv: '', name: '' });
-            showInlineAlert("Sucesso", "Cartão adicionado!");
+            await subRepo.saveCard({
+                number,
+                expiry,
+                cvv,
+                name
+            });
+
+            setSavedCards(await subRepo.getSavedCards());
+
+            handleCloseCardModal();
+            setTimeout(() => {
+                showInlineAlert("Sucesso", "Cartão adicionado!");
+            }, 0);
+        } catch (error: any) {
+            showCardAlert("Erro", error?.message || "Não foi possível adicionar o cartão.");
         } finally {
             setLoadingAction(false);
         }
     };
 
     const handleDeleteCard = (id: string) => {
-        showInlineAlert("Remover", "Excluir este cartão?", [
-            { text: "Não" },
-            { text: "Sim", style: 'destructive', onPress: async () => {
-                    await subRepo.deleteCard(id);
-                    setSavedCards(prev => prev.filter(c => c.id !== id));
-                }}
+        showCardAlert("Remover", "Excluir este cartão?", [
+            { text: "Não", style: 'cancel' },
+            {
+                text: "Sim",
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await subRepo.deleteCard(id);
+                        setSavedCards(await subRepo.getSavedCards());
+                    } catch (error: any) {
+                        showCardAlert("Erro", error?.message || "Não foi possível excluir o cartão.");
+                    }
+                }
+            }
         ]);
     };
 
     const handleSetDefault = async (id: string) => {
-        await subRepo.setDefaultCard(id);
-        setSavedCards(prev => prev.map(c => ({ ...c, isDefault: c.id === id })));
+        try {
+            await subRepo.setDefaultCard(id);
+            setSavedCards(await subRepo.getSavedCards());
+        } catch (error: any) {
+            showCardAlert("Erro", error?.message || "Não foi possível definir o cartão padrão.");
+        }
     };
 
     const pickImage = async () => {
@@ -553,7 +603,7 @@ export default function ProfileScreen() {
                     <View style={{ backgroundColor: '#FFF', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 20, height: '85%' }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                             <Text style={{ fontSize: 20, fontWeight: 'bold' }}>Gerenciar Cartões</Text>
-                            <TouchableOpacity onPress={() => setCardModalVisible(false)}><Ionicons name="close-circle" size={30} color="#DDD" /></TouchableOpacity>
+                            <TouchableOpacity onPress={handleCloseCardModal}><Ionicons name="close-circle" size={30} color="#DDD" /></TouchableOpacity>
                         </View>
                         <ScrollView showsVerticalScrollIndicator={false}>
                             {savedCards.map(card => (
@@ -603,11 +653,19 @@ export default function ProfileScreen() {
             />
 
             <CustomAlert
-                visible={inlineAlert.visible && !subModalVisible}
+                visible={inlineAlert.visible && !subModalVisible && !cardModalVisible && !changePasswordModalVisible}
                 title={inlineAlert.title}
                 message={inlineAlert.message}
                 buttons={inlineAlert.buttons}
                 onConfirm={closeInlineAlert}
+            />
+
+            <CustomAlert
+                visible={cardAlert.visible && cardModalVisible}
+                title={cardAlert.title}
+                message={cardAlert.message}
+                buttons={cardAlert.buttons}
+                onConfirm={closeCardAlert}
             />
         </>
     );

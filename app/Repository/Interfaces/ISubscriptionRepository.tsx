@@ -1,5 +1,6 @@
 import {Subscription} from "@/app/Models/Subscription";
 import {Plan} from "@/app/Models/Plan";
+import { SavedCard, SaveCardPayload } from "@/app/Types/apiTypes";
 
 export interface ISubscriptionRepository {
     getSubscription(): Promise<Subscription>;
@@ -10,8 +11,8 @@ export interface ISubscriptionRepository {
     upgradeSubscription(planId: number, newCardData?: { number: string, expiry: string, cvv: string }): Promise<Subscription>;
     cancelSubscription(reason?: string): Promise<Subscription>;
     activateFreeTrial(): Promise<Subscription>;
-    getSavedCards(): Promise<any[]>;
-    saveCard(cardData: any): Promise<void>;
+    getSavedCards(): Promise<SavedCard[]>;
+    saveCard(cardData: SaveCardPayload): Promise<SavedCard>;
     deleteCard(cardId: string): Promise<void>;
     setDefaultCard(cardId: string): Promise<void>;
 }

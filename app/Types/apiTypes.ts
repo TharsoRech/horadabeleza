@@ -166,6 +166,38 @@ export interface PlanResponse {
     appointmentLimit: number;
 }
 
+export interface CardResponse {
+    id: string | number;
+    cardNumber: string;
+    cardHolderName: string;
+    expiryMonth: string;
+    expiryYear: string;
+    brand: string;
+    isDefault: boolean;
+}
+
+export interface CardsEnvelopeResponse {
+    cards: CardResponse[];
+}
+
+export interface SavedCard {
+    id: string;
+    last4: string;
+    expiry: string;
+    isDefault: boolean;
+    cardHolderName?: string;
+    brand?: string;
+    maskedNumber?: string;
+}
+
+export interface SaveCardPayload {
+    number: string;
+    expiry: string;
+    cvv?: string;
+    name?: string;
+    brand?: string;
+}
+
 // Tipos de usuários
 export interface UserProfileResponse {
     id: string;

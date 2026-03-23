@@ -2,9 +2,27 @@ import {Subscription} from "../Models/Subscription";
 import {ISubscriptionRepository} from "@/app/Repository/Interfaces/ISubscriptionRepository";
 import {Plan} from "@/app/Models/Plan";
 import { apiClient } from "@/app/Utils/apiClient";
-import { SubscriptionResponse, PlanResponse } from "@/app/Types/apiTypes";
+import { SubscriptionResponse, PlanResponse, CardResponse, CardsEnvelopeResponse, SavedCard, SaveCardPayload } from "@/app/Types/apiTypes";
 
 export class SubscriptionRepository implements ISubscriptionRepository {
+    private mapCard(response: CardResponse): SavedCard {
+        const rawCardNumber = String(response.cardNumber || '');
+        const digitsOnly = rawCardNumber.replace(/\D/g, '');
+        const last4 = digitsOnly.slice(-4);
+        const normalizedYear = String(response.expiryYear || '').trim();
+        const shortYear = normalizedYear.length >= 2 ? normalizedYear.slice(-2) : normalizedYear;
+
+        return {
+            id: String(response.id),
+            last4,
+            expiry: `${response.expiryMonth}/${shortYear}`,
+            isDefault: Boolean(response.isDefault),
+            cardHolderName: response.cardHolderName,
+            brand: response.brand,
+            maskedNumber: last4 ? `**** ${last4}` : undefined
+        };
+    }
+
     private normalizePlanType(value: unknown): string {
         if (typeof value === 'string') {
             const normalized = value.trim().toLowerCase();
@@ -139,19 +157,27 @@ export class SubscriptionRepository implements ISubscriptionRepository {
         }
     }
 
-    async getSavedCards(): Promise<any[]> {
+    async getSavedCards(): Promise<SavedCard[]> {
         try {
-            const response: { cards: any[] } = await apiClient.get('/subscriptions/cards');
-            return response.cards || [];
+            const response: CardsEnvelopeResponse = await apiClient.get('/subscriptions/cards');
+            return (response.cards || []).map(card => this.mapCard(card));
         } catch (error) {
             console.error('Get saved cards error:', error);
             return [];
         }
     }
 
-    async saveCard(cardData: any): Promise<void> {
+    async saveCard(cardData: SaveCardPayload): Promise<SavedCard> {
         try {
-            await apiClient.post('/subscriptions/cards', cardData);
+            const response: CardResponse = await apiClient.post('/subscriptions/cards', {
+                number: cardData.number,
+                holderName: cardData.name,
+                expiry: cardData.expiry,
+                cvv: cardData.cvv,
+                brand: cardData.brand
+            });
+
+            return this.mapCard(response);
         } catch (error) {
             console.error('Save card error:', error);
             throw new Error("Não foi possível salvar o cartão.");
