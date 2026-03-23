@@ -92,7 +92,7 @@ export default function MyServices() {
         setTimeout(() => setEditModalVisible(true), 300);
     };
 
-    const handleSaveSalon = (updatedSalon: Salon) => {
+    const handleSaveSalon = async (updatedSalon: Salon) => {
         setSalons(prev => {
             const index = prev.findIndex(s => s.id === updatedSalon.id);
             if (index !== -1) {
@@ -102,6 +102,8 @@ export default function MyServices() {
             }
             return [updatedSalon, ...prev];
         });
+
+        await loadData();
     };
 
     const handleDelete = (salon: Salon) => {
@@ -113,9 +115,16 @@ export default function MyServices() {
                 {
                     text: "Remover",
                     style: "destructive",
-                    onPress: () => {
-                        setSalons(prev => prev.filter(s => s.id !== salon.id));
-                        setOptionsVisible(false);
+                    onPress: async () => {
+                        try {
+                            await salonRepo.deleteUnit(salon.id);
+                            setSalons(prev => prev.filter(s => s.id !== salon.id));
+                        } catch (error) {
+                            console.error('Erro ao remover unidade:', error);
+                            Alert.alert('Erro', 'Não foi possível remover a unidade.');
+                        } finally {
+                            setOptionsVisible(false);
+                        }
                     }
                 }
             ]

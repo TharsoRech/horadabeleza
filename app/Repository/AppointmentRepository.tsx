@@ -5,34 +5,40 @@ import {AppointmentResponse} from "@/app/Types/apiTypes";
 
 export class AppointmentRepository implements IAppointmentRepository {
 
+    private mapResponseToAppointment(app: AppointmentResponse): Appointment {
+        const scheduledAt = app.scheduledAt || '';
+        const fallbackDate = scheduledAt ? scheduledAt.split('T')[0] : '';
+        const fallbackTime = scheduledAt ? scheduledAt.split('T')[1]?.slice(0, 5) || '' : '';
+
+        return {
+            id: String(app.id),
+            date: app.date || fallbackDate,
+            time: app.time || fallbackTime,
+            status: String(app.status) as Appointment['status'],
+            serviceId: String(app.serviceId || ''),
+            professionalId: String(app.professionalId || ''),
+            salonId: String(app.salonId || ''),
+            isReviewed: app.isReviewed || false,
+            salonImage: app.salonImage || '',
+            salonName: app.salonName || '',
+            address: app.address || '',
+            serviceName: app.serviceName || '',
+            price: app.price ?? app.totalPrice ?? 0,
+            duration: app.duration || (app.durationMinutes ? `${app.durationMinutes} min` : ''),
+            professionalName: app.professionalName || '',
+            professionalImage: app.professionalImage || '',
+            notes: app.notes || '',
+            clientName: app.clientName || '',
+            clientPhone: app.clientPhone || ''
+        };
+    }
+
     // --- MÉTODOS IMPLEMENTADOS ---
 
     async getAppointmentById(id: string): Promise<Appointment | null> {
         try {
             const response: AppointmentResponse = await apiClient.get(`/appointments/${id}`);
-            
-            // Converte a resposta da API para o modelo Appointment
-            return {
-                id: response.id,
-                date: response.date,
-                time: response.time,
-                status: response.status as Appointment['status'],
-                serviceId: response.serviceId || '',
-                professionalId: response.professionalId || '',
-                salonId: response.salonId || '',
-                isReviewed: response.isReviewed || false,
-                salonImage: response.salonImage || '',
-                salonName: response.salonName || '',
-                address: response.address || '',
-                serviceName: response.serviceName || '',
-                price: response.price || 0,
-                duration: response.duration || '',
-                professionalName: response.professionalName || '',
-                professionalImage: response.professionalImage || '',
-                notes: response.notes || '',
-                clientName: response.clientName || '',
-                clientPhone: response.clientPhone || ''
-            };
+            return this.mapResponseToAppointment(response);
         } catch (error) {
             console.error('Get appointment error:', error);
             return null;
@@ -53,30 +59,8 @@ export class AppointmentRepository implements IAppointmentRepository {
 
     async getUserAppointments(): Promise<Appointment[]> {
         try {
-            const response: AppointmentResponse[] = await apiClient.get('/appointments/user');
-            
-            // Converte as respostas da API para o modelo Appointment
-            return response.map(app => ({
-                id: app.id,
-                date: app.date,
-                time: app.time,
-                status: app.status as Appointment['status'],
-                serviceId: app.serviceId || '',
-                professionalId: app.professionalId || '',
-                salonId: app.salonId || '',
-                salonName: app.salonName || '',
-                address: app.address || '',
-                serviceName: app.serviceName || '',
-                price: app.price || 0,
-                duration: app.duration || '',
-                professionalName: app.professionalName || '',
-                professionalImage: app.professionalImage || '',
-                isReviewed: app.isReviewed || false,
-                salonImage: app.salonImage || '',
-                notes: app.notes || '',
-                clientName: app.clientName || '',
-                clientPhone: app.clientPhone || ''
-            }));
+            const response: AppointmentResponse[] = await apiClient.get('/appointments/mine');
+            return response.map(app => this.mapResponseToAppointment(app));
         } catch (error) {
             console.error('Get user appointments error:', error);
             return [];
@@ -86,29 +70,7 @@ export class AppointmentRepository implements IAppointmentRepository {
     async getAppointmentsByStatus(status: Appointment['status']): Promise<Appointment[]> {
         try {
             const response: AppointmentResponse[] = await apiClient.get(`/appointments/status/${status}`);
-            
-            // Converte as respostas da API para o modelo Appointment
-            return response.map(app => ({
-                id: app.id,
-                date: app.date,
-                time: app.time,
-                status: app.status as Appointment['status'],
-                serviceId: app.serviceId || '',
-                professionalId: app.professionalId || '',
-                salonId: app.salonId || '',
-                salonName: app.salonName || '',
-                address: app.address || '',
-                serviceName: app.serviceName || '',
-                price: app.price || 0,
-                duration: app.duration || '',
-                professionalName: app.professionalName || '',
-                professionalImage: app.professionalImage || '',
-                isReviewed: app.isReviewed || false,
-                salonImage: app.salonImage || '',
-                notes: app.notes || '',
-                clientName: app.clientName || '',
-                clientPhone: app.clientPhone || ''
-            }));
+            return response.map(app => this.mapResponseToAppointment(app));
         } catch (error) {
             console.error('Get appointments by status error:', error);
             return [];
@@ -145,29 +107,7 @@ export class AppointmentRepository implements IAppointmentRepository {
             }
 
             const response: AppointmentResponse[] = await apiClient.get(endpoint);
-            
-            // Converte as respostas da API para o modelo Appointment
-            return response.map(app => ({
-                id: app.id,
-                date: app.date,
-                time: app.time,
-                status: app.status as Appointment['status'],
-                serviceId: app.serviceId || '',
-                professionalId: app.professionalId,
-                salonId: app.salonId,
-                salonName: app.salonName || '',
-                address: app.address || '',
-                serviceName: app.serviceName || '',
-                price: app.price || 0,
-                duration: app.duration || '',
-                professionalName: app.professionalName || '',
-                professionalImage: app.professionalImage,
-                isReviewed: app.isReviewed,
-                salonImage: app.salonImage,
-                notes: app.notes,
-                clientName: app.clientName,
-                clientPhone: app.clientPhone
-            }));
+            return response.map(app => this.mapResponseToAppointment(app));
         } catch (error) {
             console.error('Get appointments by unit and date error:', error);
             return [];
@@ -188,29 +128,7 @@ export class AppointmentRepository implements IAppointmentRepository {
             }
 
             const response: AppointmentResponse[] = await apiClient.get(endpoint);
-            
-            // Converte as respostas da API para o modelo Appointment
-            return response.map(app => ({
-                id: app.id,
-                date: app.date,
-                time: app.time,
-                status: app.status as Appointment['status'],
-                serviceId: app.serviceId || '',
-                professionalId: app.professionalId,
-                salonId: app.salonId,
-                salonName: app.salonName || '',
-                address: app.address || '',
-                serviceName: app.serviceName || '',
-                price: app.price || 0,
-                duration: app.duration || '',
-                professionalName: app.professionalName || '',
-                professionalImage: app.professionalImage,
-                isReviewed: app.isReviewed,
-                salonImage: app.salonImage,
-                notes: app.notes,
-                clientName: app.clientName,
-                clientPhone: app.clientPhone
-            }));
+            return response.map(app => this.mapResponseToAppointment(app));
         } catch (error) {
             console.error('Get appointments for admin error:', error);
             return [];

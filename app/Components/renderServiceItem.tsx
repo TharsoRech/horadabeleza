@@ -19,6 +19,8 @@ interface RenderServiceItemProps {
 }
 
 export const RenderServiceItem = ({ item, onPress }: RenderServiceItemProps) => {
+    const isConfigured = (item.subServices?.length || 0) > 0;
+
     return (
         <TouchableOpacity
             style={styles.card}
@@ -39,13 +41,13 @@ export const RenderServiceItem = ({ item, onPress }: RenderServiceItemProps) => 
                     {/* BADGE DE PUBLICAÇÃO */}
                     <View style={[
                         styles.statusBadge,
-                        item.published ? styles.publishedBadge : styles.draftBadge
+                        isConfigured ? styles.publishedBadge : styles.draftBadge
                     ]}>
                         <Text style={[
                             styles.statusText,
-                            { color: item.published ? '#2E7D32' : '#EF6C00' }
+                            { color: isConfigured ? '#2E7D32' : '#EF6C00' }
                         ]}>
-                            {item.published ? 'Ativo' : 'Rascunho'}
+                            {isConfigured ? 'Ativo' : 'Rascunho'}
                         </Text>
                     </View>
                 </View>

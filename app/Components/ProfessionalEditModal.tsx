@@ -135,7 +135,12 @@ export const ProfessionalEditModal = ({ visible, professionals, allServices, onC
 
     const saveChanges = () => {
         if (tempProf) {
-            setLocalProfs(prev => prev.map(p => p.id === tempProf.id ? (tempProf as any) : p));
+            const scheduleTimes = Object.values(tempProf.schedule || {}).flat();
+            const normalizedAvailableTimes = Array.from(new Set(scheduleTimes)).sort();
+            setLocalProfs(prev => prev.map(p => p.id === tempProf.id ? ({
+                ...(tempProf as any),
+                availableTimes: normalizedAvailableTimes
+            } as any) : p));
             setTempProf(null);
         }
     };

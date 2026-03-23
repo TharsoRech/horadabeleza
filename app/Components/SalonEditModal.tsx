@@ -22,7 +22,7 @@ interface Props {
     visible: boolean;
     salon: Salon | null;
     onClose: () => void;
-    onSave: (updatedSalon: Salon) => void;
+    onSave: (updatedSalon: Salon) => Promise<void> | void;
 }
 
 export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
@@ -125,27 +125,51 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
     const loadDetails = async (target: Salon) => {
         try {
             const [s, p] = await Promise.all([
-                salonRepo.getSalonServices(target.serviceIds || []),
-                salonRepo.getSalonProfessionals(target.professionalIds || [])
+                salonRepo.getSalonServices(target.serviceIds || [], target.id),
+                salonRepo.getSalonProfessionals(target.professionalIds || [], target.id)
             ]);
             setServices(s); setProfessionals(p);
         } catch (e) { console.error(e); }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!imageUri || !name.trim() || phone.length < 14) return Alert.alert("Campos Obrigatórios", "Capa, Nome e Telefone são obrigatórios.");
 
-        onSave({
-            ...salon,
-            id: salon?.id || Math.random().toString(36).substr(2, 9),
-            name: name.trim(), address: address.trim(), description: description.trim(),
-            published, phone: phone.replace(/\D/g, ''), whatsApp: whatsApp.replace(/\D/g, ''),
-            image: imageUri as any, gallery,
-            serviceIds: services.map(s => s.id), professionalIds: professionals.map(p => p.id),
-            rating: salon?.rating || "0", reviews: salon?.reviews || 0,
-            userHasVisited: salon?.userHasVisited ?? false, isAdmin: salon?.isAdmin ?? false,
-        });
-        onClose();
+        setIsLoadingData(true);
+        try {
+            const salonPayload = {
+                name: name.trim(),
+                address: address.trim(),
+                description: description.trim(),
+                published,
+                phone: phone.replace(/\D/g, ''),
+                whatsApp: whatsApp.replace(/\D/g, ''),
+                image: imageUri as string,
+                gallery
+            };
+
+            const persistedSalon = salon
+                ? await salonRepo.updateUnit(salon.id, salonPayload)
+                : await salonRepo.createUnit(salonPayload);
+
+            const syncedServices = await salonRepo.syncSalonServices(persistedSalon.id, services);
+            const syncedProfessionals = await salonRepo.syncSalonProfessionals(persistedSalon.id, professionals);
+
+            await onSave({
+                ...persistedSalon,
+                serviceIds: syncedServices.map(s => s.id),
+                professionalIds: syncedProfessionals.map(p => p.id),
+                image: persistedSalon.image || imageUri || undefined,
+                gallery
+            });
+
+            onClose();
+        } catch (error: any) {
+            console.error('Erro ao salvar unidade:', error);
+            Alert.alert('Erro', error?.message || 'Não foi possível salvar a unidade.');
+        } finally {
+            setIsLoadingData(false);
+        }
     };
 
     const isSubActive = canPublish(subscription);
@@ -275,7 +299,7 @@ export const SalonEditModal = ({ visible, salon, onClose, onSave }: Props) => {
             <SubscriptionModal
                 visible={subModalVisible}
                 onClose={() => setSubModalVisible(false)}
-                isTrialEligible={!subscription?.trialStartDate}
+                isTrialEligible={subscription?.isTrialEligible ?? true}
                 onSubscriptionSuccess={handleSubscriptionSuccess}
             />
 

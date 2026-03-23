@@ -28,15 +28,18 @@ export interface RegisterRequest {
 
 // Tipos de agendamentos
 export interface AppointmentResponse {
-    id: string;
-    date: string;
-    time: string;
-    status: string;
-    serviceId: string;
-    professionalId: string;
-    salonId: string;
-    userId: string;
-    isReviewed: boolean;
+    id: string | number;
+    date?: string;
+    time?: string;
+    status: string | number;
+    serviceId?: string | number;
+    professionalId?: string | number;
+    salonId?: string | number;
+    userId?: string | number;
+    isReviewed?: boolean;
+    scheduledAt?: string;
+    durationMinutes?: number;
+    totalPrice?: number;
     salonImage?: string;
     salonName?: string;
     address?: string;
@@ -62,51 +65,70 @@ export interface AppointmentRequest {
 
 // Tipos de salões e profissionais
 export interface SalonResponse {
-    id: string;
+    id: string | number;
+    ownerId?: number;
     name: string;
     address: string;
+    city?: string;
+    state?: string;
     rating: string;
     reviews: number;
     image?: string;
-    serviceIds: string[];
-    professionalIds: string[];
+    logoUrl?: string;
+    serviceIds?: Array<string | number>;
+    professionalIds?: Array<string | number>;
     whatsApp?: string;
     phone?: string;
     description?: string; 
     userHasVisited: boolean;
-    gallery?: string[];
+    gallery?: string[] | string;
     published: boolean;
+    active?: boolean;
     isAdmin: boolean;
 }
 
 export interface ProfessionalResponse {
-    id: string;
-    name: string;
-    specialty: string;
-    rating: number;
-    reviews: number;
-    bio: string;
+    id: string | number;
+    userId?: number;
+    salonId?: number;
+    name?: string;
+    userName?: string;
+    specialty?: string;
+    rating?: number;
+    averageRating?: number;
+    reviews?: number;
+    totalReviews?: number;
+    bio?: string;
     image?: string;
-    serviceIds: string[];
-    availableTimes: string[];
-    cpf: string;
+    photoUrl?: string;
+    serviceIds?: Array<string | number>;
+    availableTimes?: string[];
+    cpf?: string;
     isAdmin: boolean;
 }
 
 export interface ServiceResponse {
-    id: string;
+    id: string | number;
+    salonId?: number;
+    categoryId?: number;
+    categoryName?: string;
     name: string;
-    icon: string;
-    description: string;
-    subServices: SubServiceResponse[];
+    icon?: string;
+    description?: string;
+    price?: number;
+    durationMinutes?: number;
+    active?: boolean;
+    subServices?: SubServiceResponse[];
 }
 
 export interface SubServiceResponse {
-    id: string;
+    id: string | number;
+    serviceId?: string | number;
     name: string;
     price: number;
     duration: string;
-    description: string;
+    description?: string;
+    active?: boolean;
 }
 
 export interface CategoryResponse {
@@ -117,13 +139,15 @@ export interface CategoryResponse {
 
 // Tipos de avaliações
 export interface ReviewResponse {
-    id: string;
+    id: string | number;
+    appointmentId?: number;
+    clientName?: string;
     salonId?: string;
     professionalId?: string;
-    userId: string;
-    userName: string;
+    userId?: string;
+    userName?: string;
     rating: number;
-    comment: string;
+    comment?: string;
     createdAt: string;
 }
 

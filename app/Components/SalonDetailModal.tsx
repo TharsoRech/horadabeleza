@@ -9,7 +9,8 @@ import {
     Linking,
     Platform,
     ActivityIndicator,
-    TextInput
+    TextInput,
+    Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -65,6 +66,8 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
     const [showAuthAlert, setShowAuthAlert] = useState(false); // Novo Estado para o Alerta
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
     // Estados de Review
     const [newRating, setNewRating] = useState(0);
@@ -95,8 +98,8 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                 setLoading(true);
                 try {
                     const [services, pros, revs] = await Promise.all([
-                        repository.getSalonServices(salon?.serviceIds ?? []),
-                        repository.getSalonProfessionals(salon?.professionalIds ?? []),
+                        repository.getSalonServices(salon?.serviceIds ?? [], salon?.id),
+                        repository.getSalonProfessionals(salon?.professionalIds ?? [], salon?.id),
                         repository.getSalonReviews(salon?.id ?? "")
                     ]);
                     setAllServices(services);
@@ -134,21 +137,27 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         }
     };
 
-    const handleSendReview = () => {
-        if (newRating === 0) return;
-        const reviewObj: Review = {
-            salonId: salon?.id ?? "",
-            id: String(Date.now()),
-            professionalId: "",
-            userName: "Você",
-            rating: newRating,
-            comment: newComment,
-            createdAt: new Date().toISOString(),
-            userId: "current"
-        };
-        setReviews([reviewObj, ...reviews]);
-        setNewRating(0);
-        setNewComment("");
+    const handleSendReview = async () => {
+        if (newRating === 0 || !salon) return;
+
+        setIsSubmittingReview(true);
+        try {
+            const reviewObj = await repository.createSalonReview({
+                salonId: salon.id,
+                rating: newRating,
+                comment: newComment
+            });
+
+            setReviews([reviewObj as Review, ...reviews]);
+            setNewRating(0);
+            setNewComment("");
+            Alert.alert('Avaliação enviada', 'Obrigado pelo seu feedback!');
+        } catch (error: any) {
+            console.error('Erro ao enviar avaliação:', error);
+            Alert.alert('Erro', error?.message || 'Não foi possível enviar sua avaliação agora.');
+        } finally {
+            setIsSubmittingReview(false);
+        }
     };
 
     // LOGICA DE AGENDAMENTO COM TRAVA DE AUTH
@@ -167,9 +176,27 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
         router.replace('/Pages/Login/LoginScreen' as any);
     };
 
-    const handleFinalConfirm = () => {
-        setShowConfirmPopup(false);
-        setTimeout(() => setShowSuccessPopup(true), 450);
+    const handleFinalConfirm = async () => {
+        if (!canConfirm || !selectedSubService || !selectedProf || !salon) return;
+
+        setIsSubmittingBooking(true);
+        try {
+            const scheduledAt = `${selectedDate}T${selectedTime}:00`;
+            await repository.createAppointment({
+                professionalId: selectedProf.id,
+                serviceId: selectedSubService.id,
+                salonId: salon.id,
+                scheduledAt
+            });
+
+            setShowConfirmPopup(false);
+            setTimeout(() => setShowSuccessPopup(true), 250);
+        } catch (error: any) {
+            console.error('Erro ao criar agendamento:', error);
+            Alert.alert('Erro', error?.message || 'Não foi possível confirmar o agendamento.');
+        } finally {
+            setIsSubmittingBooking(false);
+        }
     };
 
     const handleCloseSuccess = () => {
@@ -314,7 +341,9 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                                             <View style={{ marginTop: 25 }}>
                                                 <Text style={styles.sectionTitle}>2. Escolha o profissional</Text>
                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                                    {allProfessionals.filter(p => p.serviceIds?.includes(selectedService?.id || "")).map(p => (
+                                                    {allProfessionals
+                                                        .filter(p => !p.serviceIds || p.serviceIds.length === 0 || p.serviceIds.includes(selectedService?.id || ""))
+                                                        .map(p => (
                                                         <View key={p.id} style={{ position: 'relative', marginRight: 15 }}>
                                                             <TouchableOpacity
                                                                 style={[styles.profCard, selectedProf?.id === p.id && styles.selectedItem, { marginRight: 0 }]}
@@ -426,8 +455,10 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                                                     onChangeText={setNewComment}
                                                 />
                                                 {newRating > 0 && (
-                                                    <TouchableOpacity style={styles.sendReviewBtn} onPress={handleSendReview}>
-                                                        <Text style={styles.sendReviewBtnText}>Publicar Avaliação</Text>
+                                                    <TouchableOpacity style={[styles.sendReviewBtn, { opacity: isSubmittingReview ? 0.7 : 1 }]} onPress={handleSendReview} disabled={isSubmittingReview}>
+                                                        {isSubmittingReview
+                                                            ? <ActivityIndicator size="small" color="#FFF" />
+                                                            : <Text style={styles.sendReviewBtnText}>Publicar Avaliação</Text>}
                                                     </TouchableOpacity>
                                                 )}
                                             </View>
@@ -467,8 +498,10 @@ export const SalonDetailModal = ({ visible, salon, onClose, repository }: Props)
                                     <DetailItem icon="cash" label="Valor" value={`R$ ${selectedSubService?.price.toFixed(2).replace('.',',')}`} />
                                     <DetailItem icon="time" label="Horário" value={`${selectedTime} (${selectedSubService?.duration})`} />
                                 </View>
-                                <TouchableOpacity style={styles.confirmFinalBtn} onPress={handleFinalConfirm}>
-                                    <Text style={styles.confirmFinalBtnText}>Agendar Agora</Text>
+                                <TouchableOpacity style={[styles.confirmFinalBtn, { opacity: isSubmittingBooking ? 0.7 : 1 }]} onPress={handleFinalConfirm} disabled={isSubmittingBooking}>
+                                    {isSubmittingBooking
+                                        ? <ActivityIndicator color="#FFF" />
+                                        : <Text style={styles.confirmFinalBtnText}>Agendar Agora</Text>}
                                 </TouchableOpacity>
                                 <TouchableOpacity style={{marginTop: 15, alignSelf: 'center'}} onPress={() => setShowConfirmPopup(false)}>
                                     <Text style={{color: '#999'}}>Ajustar detalhes</Text>

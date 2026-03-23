@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
     Modal, View, Text, TextInput, TouchableOpacity,
-    ScrollView, KeyboardAvoidingView, Platform, Alert, Switch
+    ScrollView, KeyboardAvoidingView, Platform, Alert
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { Salon } from "@/app/Models/Salon";
-import { COLORS } from "@/constants/theme";
-import { ServiceEditModalStyles as styles } from "../Styles/ServiceEditModalStyles"; // Reutilizando a base de estilos
+import { SalonEditModalStyles as styles } from "../Styles/SalonEditModalStyles";
 
 interface Props {
     visible: boolean;
@@ -62,7 +60,9 @@ export const SalonManagerModal = ({ visible, salon, onClose, onSave }: Props) =>
             professionalIds: salon?.professionalIds || [],
             userHasVisited: salon?.userHasVisited || false,
             image: salon?.image || '',
-            gallery: salon?.gallery || []
+            gallery: salon?.gallery || [],
+            published: salon?.published ?? true,
+            isAdmin: salon?.isAdmin ?? true
         };
 
         try {
@@ -135,7 +135,7 @@ export const SalonManagerModal = ({ visible, salon, onClose, onSave }: Props) =>
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Canais de Contato</Text>
 
-                        <View style={styles.rowItems}>
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.label}>Telefone</Text>
                                 <TextInput
@@ -148,7 +148,7 @@ export const SalonManagerModal = ({ visible, salon, onClose, onSave }: Props) =>
                             </View>
                         </View>
 
-                        <View style={styles.rowItems}>
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.label}>WhatsApp (Com DDD)</Text>
                                 <TextInput
@@ -160,7 +160,9 @@ export const SalonManagerModal = ({ visible, salon, onClose, onSave }: Props) =>
                                 />
                             </View>
                         </View>
-                        <Text style={styles.subLabel}>Dica: Use o formato internacional para o WhatsApp (Ex: 55 + DDD + Número).</Text>
+                        <Text style={{ fontSize: 12, color: '#777', marginTop: 8 }}>
+                            Dica: Use o formato internacional para o WhatsApp (Ex: 55 + DDD + Numero).
+                        </Text>
                     </View>
 
                 </ScrollView>

@@ -19,11 +19,17 @@ export class ServicesRepository implements IServicesRepository {
             
             // Converte as respostas da API para o modelo Service
             const services: Service[] = response.map(service => ({
-                id: service.id,
+                id: String(service.id),
                 name: service.name,
                 icon: service.icon || '',
-                description: service.description,
-                subServices: service.subServices || []
+                description: service.description || '',
+                subServices: (service.subServices || []).map(sub => ({
+                    id: String(sub.id),
+                    name: sub.name,
+                    price: Number(sub.price || 0),
+                    duration: sub.duration,
+                    description: sub.description || ''
+                }))
             }));
 
             console.log('✅ Services converted successfully:', services);

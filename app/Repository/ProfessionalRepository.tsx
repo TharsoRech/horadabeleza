@@ -9,6 +9,15 @@ import { ProfessionalResponse, ReviewResponse, SalonResponse } from "@/app/Types
 export class ProfessionalRepository implements IProfessionalRepository {
     private imageCache: Map<string, string> = new Map();
 
+    private normalizeGallery(raw?: string[] | string): string[] {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        return raw
+            .split(',')
+            .map(item => item.trim())
+            .filter(Boolean);
+    }
+
     /**
      * Helper para processar imagem do profissional (Base64)
      */
@@ -46,14 +55,14 @@ export class ProfessionalRepository implements IProfessionalRepository {
             
             // Converte a resposta da API para o modelo Professional
             const professional: Professional = {
-                id: response.id,
-                name: response.name,
-                specialty: response.specialty,
-                rating: response.rating || 0,
-                reviews: response.reviews || 0,
+                id: String(response.id),
+                name: response.name || response.userName || '',
+                specialty: response.specialty || '',
+                rating: response.rating ?? response.averageRating ?? 0,
+                reviews: response.reviews ?? response.totalReviews ?? 0,
                 bio: response.bio || '',
-                image: response.image,
-                serviceIds: response.serviceIds,
+                image: response.image || response.photoUrl,
+                serviceIds: (response.serviceIds || []).map(id => String(id)),
                 availableTimes: response.availableTimes || [],
                 cpf: response.cpf || '',
                 isAdmin: response.isAdmin || false
@@ -98,13 +107,13 @@ export class ProfessionalRepository implements IProfessionalRepository {
             
             // Converte as respostas da API para o modelo Review
             const reviews: Review[] = response.map(review => ({
-                id: review.id,
+                id: String(review.id),
                 salonId: review.salonId || '',
                 professionalId: review.professionalId || '',
-                userId: review.userId,
-                userName: review.userName,
+                userId: review.userId || '',
+                userName: review.userName || review.clientName || 'Cliente',
                 rating: review.rating,
-                comment: review.comment,
+                comment: review.comment || '',
                 createdAt: review.createdAt
             }));
 
@@ -124,19 +133,19 @@ export class ProfessionalRepository implements IProfessionalRepository {
             
             // Converte a resposta da API para o modelo Salon
             const salon: Salon = {
-                id: response.id,
+                id: String(response.id),
                 name: response.name,
                 address: response.address,
                 rating: response.rating || "0",
                 reviews: response.reviews || 0,
-                image: response.image,
-                serviceIds: response.serviceIds,
-                professionalIds: response.professionalIds,
+                image: response.image || response.logoUrl,
+                serviceIds: (response.serviceIds || []).map(id => String(id)),
+                professionalIds: (response.professionalIds || []).map(id => String(id)),
                 whatsApp: response.whatsApp,
                 phone: response.phone,
                 description: response.description,
                 userHasVisited: response.userHasVisited || false,
-                gallery: response.gallery || [],
+                gallery: this.normalizeGallery(response.gallery),
                 published: response.published || false,
                 isAdmin: response.isAdmin || false
             };
@@ -177,13 +186,13 @@ export class ProfessionalRepository implements IProfessionalRepository {
             
             // Converte a resposta da API para o modelo Review
             const newReview: Review = {
-                id: response.id,
+                id: String(response.id),
                 salonId: response.salonId || '',
                 professionalId: response.professionalId || '',
-                userId: response.userId,
-                userName: response.userName,
+                userId: response.userId || '',
+                userName: response.userName || response.clientName || userName,
                 rating: response.rating,
-                comment: response.comment,
+                comment: response.comment || '',
                 createdAt: response.createdAt
             };
 
